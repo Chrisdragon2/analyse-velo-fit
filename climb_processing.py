@@ -104,12 +104,21 @@ def calculate_climb_summary(montees_grouped, min_climb_distance):
         cadence_moyenne = segment['cadence'].mean() if 'cadence' in segment.columns else np.nan
         power_moyenne = segment['estimated_power'].mean() if 'estimated_power' in segment.columns else np.nan
 
+        # --- NOUVEAU : Calcul de la Puissance Max ---
+        power_max = segment['estimated_power'].max() if 'estimated_power' in segment.columns and not segment['estimated_power'].isnull().all() else np.nan
+        # --- FIN NOUVEAU ---
+
         resultats_montees.append({
-            'Début (km)': f"{dist_debut_km:.1f}", 'Distance (m)': f"{distance_segment:.0f}", 'Dénivelé (m)': f"{denivele:.0f}",
-            'Pente (%)': f"{pente_moyenne:.1f}", 'Durée': str(duree_formatted).split('.')[0].replace('0 days ', ''),
+            'Début (km)': f"{dist_debut_km:.1f}",
+            'Distance (m)': f"{distance_segment:.0f}",
+            'Dénivelé (m)': f"{denivele:.0f}",
+            'Pente (%)': f"{pente_moyenne:.1f}",
+            'Durée': str(duree_formatted).split('.')[0].replace('0 days ', ''),
             'Vitesse (km/h)': f"{vitesse_moyenne_kmh:.1f}",
             'FC Moy (bpm)': f"{fc_moyenne:.0f}" if pd.notna(fc_moyenne) else "N/A",
             'Cadence Moy': f"{cadence_moyenne:.0f}" if pd.notna(cadence_moyenne) else "N/A",
-            'Puissance Est. (W)': f"{power_moyenne:.0f}" if pd.notna(power_moyenne) else "N/A"
+            'Puissance Est. (W)': f"{power_moyenne:.0f}" if pd.notna(power_moyenne) else "N/A",
+            # --- NOUVEAU : Ajout au dictionnaire ---
+            'Puissance Max Est. (W)': f"{power_max:.0f}" if pd.notna(power_max) else "N/A"
         })
     return resultats_montees
