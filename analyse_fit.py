@@ -5,12 +5,14 @@ import numpy as np
 # --- Importations depuis les modules ---
 from data_loader import load_and_clean_data
 from power_estimator import estimate_power
+# --- CORRECTION ICI ---
 from climb_processing import (
     calculate_derivatives,
     identify_and_filter_initial_climbs,
     group_and_merge_climbs,
     calculate_climb_summary
 )
+# --- FIN CORRECTION ---
 # Importer les deux fonctions de plotting
 from plotting import create_climb_figure, create_sprint_figure
 # Importer la fonction de détection de sprint
@@ -192,3 +194,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
