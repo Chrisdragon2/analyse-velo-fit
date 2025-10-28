@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.colors
 from fitparse import FitFile
+from power_estimator import estimate_power
 import io
 
 # --- 1. FONCTION DE LECTURE ET NETTOYAGE DES DONNÉES ---
@@ -397,6 +398,7 @@ def main_app():
 # Point d'entrée pour l'exécution
 if __name__ == "__main__":
     main_app()
+
 
 
 
