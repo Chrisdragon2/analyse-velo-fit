@@ -80,111 +80,48 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
         xaxis=dict(range=[0, df_climb['dist_relative'].max() if not df_climb.empty else 0], gridcolor='#EAEAEA', tick0=0, dtick=200),
         yaxis=dict(gridcolor='#EAEAEA'), showlegend=False,
     )
-
     return fig
-    def create_sprint_figure(df_sprint_segment, sprint_info, index):
+
+# --- CORRECTION : Désindenter cette ligne et tout ce qui suit ---
+def create_sprint_figure(df_sprint_segment, sprint_info, index):
     """
     Crée un graphique de profil pour un segment de sprint, montrant Vitesse et Puissance.
-
-    Args:
-        df_sprint_segment (pd.DataFrame): Segment du DataFrame global correspondant au sprint.
-                                          Doit contenir 'speed', 'estimated_power', 'delta_time'.
-                                          Indexé par timestamp.
-        sprint_info (dict): Dictionnaire contenant les informations résumées du sprint
-                            (ex: Vitesse Max, Puissance Max Est., Durée).
-        index (int): Numéro du sprint pour le titre du graphique.
-
-    Returns:
-        go.Figure: La figure Plotly configurée.
     """
     fig = go.Figure()
-
-    # Assurer que les colonnes nécessaires sont numériques et gérer les NaN
     df_sprint_segment = df_sprint_segment.copy()
     for col in ['speed', 'estimated_power', 'delta_time']:
         if col in df_sprint_segment.columns:
             df_sprint_segment.loc[:, col] = pd.to_numeric(df_sprint_segment[col], errors='coerce')
         else:
-            st.warning(f"La colonne '{col}' est manquante dans les données du sprint pour le graphique.")
-            # Si estimated_power manque, ce n'est pas bloquant, on continue sans
-            if col != 'estimated_power':
-                 return go.Figure() # Retourner une figure vide si une colonne essentielle manque (sauf puissance)
-
-    df_sprint_segment = df_sprint_segment.dropna(subset=['speed']).copy() # La vitesse est essentielle
-
+            st.warning(f"La colonne '{col}' est manquante.")
+            if col != 'estimated_power': return go.Figure()
+    df_sprint_segment = df_sprint_segment.dropna(subset=['speed']).copy()
     if df_sprint_segment.empty:
-        st.warning(f"Aucune donnée valide pour tracer le sprint {index+1}.")
+        st.warning(f"Aucune donnée valide pour le sprint {index+1}.")
         return go.Figure()
-
-    # Calculer le temps relatif en secondes
     df_sprint_segment.loc[:, 'time_relative_sec'] = (df_sprint_segment.index - df_sprint_segment.index[0]).total_seconds()
     df_sprint_segment.loc[:, 'speed_kmh'] = df_sprint_segment['speed'] * 3.6
-    # Remplir NaN pour puissance avant tracé
-    if 'estimated_power' in df_sprint_segment.columns:
-        df_sprint_segment['estimated_power'] = df_sprint_segment['estimated_power'].fillna(0)
-
-
-    # Trace pour la Vitesse
+    if 'estimated_power' in df_sprint_segment.columns: df_sprint_segment['estimated_power'] = df_sprint_segment['estimated_power'].fillna(0)
     fig.add_trace(go.Scatter(
-        x=df_sprint_segment['time_relative_sec'],
-        y=df_sprint_segment['speed_kmh'],
-        mode='lines',
-        name='Vitesse (km/h)',
-        line=dict(color='blue', width=2),
-        yaxis='y1',
+        x=df_sprint_segment['time_relative_sec'], y=df_sprint_segment['speed_kmh'],
+        mode='lines', name='Vitesse (km/h)', line=dict(color='blue', width=2), yaxis='y1',
         hovertemplate='<b>Temps:</b> %{x:.1f} s<br><b>Vitesse:</b> %{y:.1f} km/h<extra></extra>'
     ))
-
-    # Trace pour la Puissance Estimée (si disponible)
     if 'estimated_power' in df_sprint_segment.columns:
         fig.add_trace(go.Scatter(
-            x=df_sprint_segment['time_relative_sec'],
-            y=df_sprint_segment['estimated_power'],
-            mode='lines',
-            name='Puissance Est. (W)',
-            line=dict(color='red', width=2, dash='dot'),
-            yaxis='y2', # Utilise le deuxième axe Y
+            x=df_sprint_segment['time_relative_sec'], y=df_sprint_segment['estimated_power'],
+            mode='lines', name='Puissance Est. (W)', line=dict(color='red', width=2, dash='dot'), yaxis='y2',
             hovertemplate='<b>Temps:</b> %{x:.1f} s<br><b>Puissance:</b> %{y:.0f} W<extra></extra>'
         ))
-
-    # Configuration des axes et du titre
-    title_text = f"Profil du Sprint n°{index + 1}<br>" \
-                 f"Vmax: {sprint_info.get('Vitesse Max (km/h)', 'N/A')} km/h | " \
-                 f"Pmax Est: {sprint_info.get('Puissance Max Est. (W)', 'N/A')} W | " \
-                 f"Durée: {sprint_info.get('Durée (s)', 'N/A')} s"
-
+    title_text = f"Profil du Sprint n°{index + 1}<br>Vmax: {sprint_info.get('Vitesse Max (km/h)', 'N/A')} km/h | Pmax Est: {sprint_info.get('Puissance Max Est. (W)', 'N/A')} W | Durée: {sprint_info.get('Durée (s)', 'N/A')} s"
     fig.update_layout(
-        title=dict(text=title_text, x=0.5),
-        height=400, width=800,
-        plot_bgcolor='white',
-        xaxis_title='Temps Relatif (s)',
-        xaxis=dict(gridcolor='#EAEAEA'),
-        yaxis=dict(
-            title='Vitesse (km/h)',
-            color='blue',
-            gridcolor='#EAEAEA',
-            side='left',
-            # Définir une plage minimale pour éviter l'écrasement si la vitesse varie peu
-            range=[0, df_sprint_segment['speed_kmh'].max()*1.1 + 5]
-        ),
-        yaxis2=dict(
-            title='Puissance Est. (W)',
-            color='red',
-            overlaying='y',
-            side='right',
-            gridcolor='#EAEAEA',
-            showgrid=False, # Optionnel: cacher la grille pour l'axe secondaire
-             # Définir une plage minimale pour éviter l'écrasement
-            range=[0, df_sprint_segment['estimated_power'].max()*1.1 + 50] if 'estimated_power' in df_sprint_segment.columns else [0,1]
-        ),
-        hovermode='x unified', # Meilleur pour comparer deux courbes sur le même axe X
-        legend=dict(x=0.01, y=0.99, bgcolor='rgba(255,255,255,0.8)'),
-        margin=dict(l=50, r=50, t=80, b=50), # Ajuster les marges pour les deux axes Y
-        # Garder les mêmes paramètres d'interaction que pour les montées
-        dragmode='pan',
-        yaxis_fixedrange=False,
-        xaxis_fixedrange=False,
+        title=dict(text=title_text, x=0.5), height=400, width=800, plot_bgcolor='white',
+        xaxis_title='Temps Relatif (s)', xaxis=dict(gridcolor='#EAEAEA'),
+        yaxis=dict(title='Vitesse (km/h)', color='blue', gridcolor='#EAEAEA', side='left', range=[0, df_sprint_segment['speed_kmh'].max()*1.1 + 5]),
+        yaxis2=dict(title='Puissance Est. (W)', color='red', overlaying='y', side='right', gridcolor='#EAEAEA', showgrid=False, range=[0, df_sprint_segment['estimated_power'].max()*1.1 + 50] if 'estimated_power' in df_sprint_segment.columns else [0,1]),
+        hovermode='x unified', legend=dict(x=0.01, y=0.99, bgcolor='rgba(255,255,255,0.8)'),
+        margin=dict(l=50, r=50, t=80, b=50), dragmode='pan', yaxis_fixedrange=False, xaxis_fixedrange=False,
         modebar=dict(orientation='v', activecolor='blue'),
     )
-
     return fig
+# --- FIN CORRECTION ---
