@@ -263,7 +263,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
                 showarrow=False, font=dict(size=10, color="black", family="Arial Black"), yshift=8
             )
 
-    # Mise en forme (Avec Modebar corrigée)
+# Mise en forme (Déplacement bloqué, Zoom via Modebar)
     climb_info = pd.DataFrame(resultats_montées).iloc[index]
     titre = (f"Profil de l'Ascension n°{index + 1} (Début à {climb_info['Début (km)']} km)<br>"
              f"Distance: {climb_info['Distance (m)']} m | Dénivelé: {climb_info['Dénivelé (m)']} m "
@@ -274,19 +274,22 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
         height=500, width=800,
         plot_bgcolor='white', paper_bgcolor='white',
         xaxis_title='Distance (m)', yaxis_title='Altitude (m)',
-        hovermode='closest',     # Garder 'closest' pour le mobile
-        dragmode='pan',          # Le glisser déplace (pan) par défaut
-        yaxis_fixedrange=False,  # Permet la manipulation des axes
-        xaxis_fixedrange=False,  # Permet la manipulation des axes
+        hovermode='closest',     # Garder 'closest' pour le tooltip au toucher
 
-        # --- CORRECTIF : Configuration Modebar simplifiée ---
+        # --- MODIFIÉ : Bloquer le drag, garder le zoom possible ---
+        dragmode=False,          # Désactive COMPLETEMENT le glisser pour déplacer/zoomer
+        yaxis_fixedrange=False,  # Laisse les axes zoomables via les boutons
+        xaxis_fixedrange=False,  # Laisse les axes zoomables via les boutons
+        # --- FIN MODIFICATION ---
+
+        # Configurer la Modebar pour afficher les boutons de zoom
         modebar=dict(
-            # visible=True,  # <-- LIGNE SUPPRIMÉE CAR INVALIDE ICI
-            orientation='v',     # Verticale
+            orientation='v',
             activecolor='blue',
-            # On laisse Plotly gérer les boutons par défaut (Zoom, Pan, Reset sont inclus)
+            # On s'assure que les boutons de zoom ne sont PAS enlevés
+            # Plotly inclut zoomIn2d, zoomOut2d, autoScale2d, resetScale2d par défaut
+            # remove=[] # On peut laisser vide ou enlever des boutons spécifiques non liés au zoom/pan
         ),
-        # --- FIN CORRECTIF ---
 
         xaxis=dict(
             range=[0, df_climb['dist_relative'].max()],
@@ -399,4 +402,5 @@ def main_app():
 # Point d'entrée pour l'exécution
 if __name__ == "__main__":
     main_app()
+
 
