@@ -11,7 +11,7 @@ import io
 @st.cache_data
 def load_and_clean_data(file_buffer):
     """Lit le fichier FIT, nettoie les données et force les types."""
-    
+
     data_list = []
     try:
         # Utiliser io.BytesIO pour lire le contenu binaire du buffer
@@ -28,28 +28,28 @@ def load_and_clean_data(file_buffer):
             return None, "Aucun message de type 'record' trouvé dans le fichier."
 
         df = pd.DataFrame(data_list)
-        
+
         # Conversion globale et nettoyage (basé sur le diagnostic)
-        cols_to_convert = ['altitude', 'distance', 'enhanced_altitude', 'enhanced_speed', 
-                           'heart_rate', 'position_lat', 'position_long', 'speed', 
+        cols_to_convert = ['altitude', 'distance', 'enhanced_altitude', 'enhanced_speed',
+                           'heart_rate', 'position_lat', 'position_long', 'speed',
                            'temperature', 'cadence']
-        
+
         for col in df.columns:
             if col in cols_to_convert:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             elif col == 'timestamp':
                  df[col] = pd.to_datetime(df[col], errors='coerce')
-        
+
         if 'cadence' in df.columns:
             df['cadence'] = df['cadence'].ffill().bfill()
-        
+
         # Colonnes essentielles
         cols_essentielles = ['distance', 'altitude', 'timestamp', 'speed']
         df = df.dropna(subset=[c for c in cols_essentielles if c in df.columns])
-        
+
         if df.empty:
             return None, "Le fichier est vide après nettoyage des données essentielles."
-        
+
         # Assurer que le timestamp est l'index
         df = df.set_index('timestamp').sort_index()
 
@@ -64,7 +64,7 @@ def load_and_clean_data(file_buffer):
 @st.cache_data
 def analyze_and_detect_climbs(df, min_climb_distance, min_pente, max_gap):
     """Détecte les ascensions, les fusionne et génère le tableau de bord."""
-    
+
     # Paramètres de détection
     SEUIL_PENTE = min_pente
     SEUIL_DISTANCE_MIN_POUR_LISTER = min_climb_distance
@@ -74,26 +74,26 @@ def analyze_and_detect_climbs(df, min_climb_distance, min_pente, max_gap):
 
     # Vérification des colonnes nécessaires
     if not all(col in df.columns for col in ['altitude', 'distance', 'speed']):
-        return None, "Le fichier FIT ne contient pas les colonnes d'altitude ou de distance nécessaires."
+        return None, None, None, None, None, None, "Le fichier FIT ne contient pas les colonnes d'altitude ou de distance nécessaires."
 
     # Détection des segments (Logique complète de détection et fusion)
     df['altitude_lisse'] = df['altitude'].rolling(window=f'{FENETRE_LISSAGE_SEC}s').mean().ffill().bfill()
     df['delta_distance'] = df['distance'].diff().fillna(0)
     df['delta_altitude'] = df['altitude_lisse'].diff().fillna(0)
-    
+
     df['pente'] = np.where(df['delta_distance'] == 0, 0, (df['delta_altitude'] / df['delta_distance']) * 100)
     df['pente'] = df['pente'].fillna(0)
 
     df['en_montee_brute'] = (df['pente'] > SEUIL_PENTE)
     df['bloc_initial'] = (df['en_montee_brute'] != df['en_montee_brute'].shift()).cumsum()
-    
+
     bloc_distances = df.groupby('bloc_initial')['delta_distance'].sum()
     blocs_montée_courts = bloc_distances[
         (bloc_distances < 100) & (df.groupby('bloc_initial')['en_montee_brute'].first() == True)
     ].index
     df['en_montee_filtree'] = df['en_montee_brute']
     df.loc[df['bloc_initial'].isin(blocs_montée_courts), 'en_montee_filtree'] = False
-    
+
     df['bloc_a_fusionner'] = (df['en_montee_filtree'] != df['en_montee_filtree'].shift()).cumsum()
 
     blocs_data = []
@@ -106,13 +106,13 @@ def analyze_and_detect_climbs(df, min_climb_distance, min_pente, max_gap):
     df_blocs = pd.DataFrame(blocs_data)
 
     merged_bloc_id = 0
-    bloc_map = {} 
+    bloc_map = {}
     for i in range(len(df_blocs)):
         current_bloc = df_blocs.iloc[i]
         if current_bloc['bloc_id'] in bloc_map: continue
         bloc_map[current_bloc['bloc_id']] = merged_bloc_id
         if not current_bloc['is_climb']:
-            merged_bloc_id += 1; continue 
+            merged_bloc_id += 1; continue
         j = i + 1
         while j < len(df_blocs) - 1:
             replat_bloc, next_climb_bloc = df_blocs.iloc[j], df_blocs.iloc[j+1]
@@ -121,15 +121,15 @@ def analyze_and_detect_climbs(df, min_climb_distance, min_pente, max_gap):
                     bloc_map[replat_bloc['bloc_id']] = merged_bloc_id
                     bloc_map[next_climb_bloc['bloc_id']] = merged_bloc_id
                     j += 2
-                else: break 
-            else: break 
+                else: break
+            else: break
         merged_bloc_id += 1
 
     df['bloc_fusionne'] = df['bloc_a_fusionner'].map(bloc_map)
     climb_merged_ids = df_blocs.loc[df_blocs['is_climb'] == True, 'bloc_id'].map(bloc_map).unique()
     df_segments_a_garder = df[df['bloc_fusionne'].isin(climb_merged_ids)]
     montees = df_segments_a_garder.groupby('bloc_fusionne')
-    
+
     # Génération du tableau de bord
     resultats_montees = []
     for nom_bloc, segment in montees:
@@ -143,7 +143,7 @@ def analyze_and_detect_climbs(df, min_climb_distance, min_pente, max_gap):
         if duree_secondes == 0: continue
         duree_formatted = pd.to_timedelta(duree_secondes, unit='s')
         vitesse_moyenne_kmh = (distance_segment / 1000) / (duree_secondes / 3600)
-        
+
         # S'assurer que les colonnes existent avant de prendre la moyenne
         fc_moyenne = segment['heart_rate'].mean() if 'heart_rate' in segment.columns else np.nan
         cadence_moyenne = segment['cadence'].mean() if 'cadence' in segment.columns else np.nan
@@ -157,39 +157,54 @@ def analyze_and_detect_climbs(df, min_climb_distance, min_pente, max_gap):
         })
 
     # Retourner les résultats pour le tableau et le dataframe pour le graphique
-    return df, pd.DataFrame(resultats_montees), montees, df_blocs, bloc_map, resultats_montees
+    return df, pd.DataFrame(resultats_montees), montees, df_blocs, bloc_map, resultats_montees, None
 
 
 # --- 3. FONCTION DE CRÉATION DU GRAPHIQUE (Plotly) ---
 
-def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, resultats_montees, index):
+def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, resultats_montées, index):
     """Crée la figure Plotly avec le remplissage synchronisé."""
-    
-    # Paramètres de couleur fixes
-    PENTE_MAX_COULEUR = 15.0 
+
+    # Paramètres de couleur et correction de bug
+    PENTE_MAX_COULEUR = 15.0
     CUSTOM_COLORSCALE = [[0.0, 'rgb(0,128,0)'], [0.25, 'rgb(255,255,0)'], [0.5, 'rgb(255,165,0)'], [0.75, 'rgb(255,0,0)'], [1.0, 'rgb(0,0,0)']]
 
-    # Logique de préparation du graphique
+    # Conversion locale pour la sécurité
+    cols_to_convert = ['distance', 'altitude', 'speed', 'pente', 'heart_rate', 'cadence', 'altitude_lisse']
+    for col in cols_to_convert:
+        if col in df_climb.columns:
+            df_climb.loc[:, col] = pd.to_numeric(df_climb[col], errors='coerce')
+
+    df_climb = df_climb.dropna(subset=['distance', alt_col_to_use, 'speed', 'pente']).copy()
+
     start_distance_abs = df_climb['distance'].iloc[0]
     start_altitude_abs = df_climb[alt_col_to_use].iloc[0]
 
     df_climb.loc[:, 'dist_relative'] = df_climb['distance'] - start_distance_abs
     df_climb.loc[:, 'speed_kmh'] = df_climb['speed'] * 3.6
-    df_climb.loc[:, 'distance_bin'] = (df_climb['dist_relative'] // CHUNK_DISTANCE_DISPLAY) * CHUNK_DISTANCE_DISPLAY
-    
+
     # Calcul des chunks pour les étiquettes
-    df_climb_chunks = df_climb.groupby('distance_bin', observed=True).agg(
-        start_dist=('dist_relative', 'first'), end_dist=('dist_relative', 'last'),
-        start_alt=(alt_col_to_use, 'first'), end_alt=(alt_col_to_use, 'last'),
-        mid_dist=('dist_relative', 'mean')
-    ).reset_index()
+    df_climb.loc[:, 'distance_bin'] = (df_climb['dist_relative'] // CHUNK_DISTANCE_DISPLAY) * CHUNK_DISTANCE_DISPLAY
+    try:
+        df_climb_chunks = df_climb.groupby('distance_bin', observed=True).agg(
+            start_dist=('dist_relative', 'first'), end_dist=('dist_relative', 'last'),
+            start_alt=(alt_col_to_use, 'first'), end_alt=(alt_col_to_use, 'last'),
+            mid_dist=('dist_relative', 'mean')
+        ).reset_index()
+    except TypeError:
+         df_climb_chunks = df_climb.groupby('distance_bin').agg(
+             start_dist=('dist_relative', 'first'), end_dist=('dist_relative', 'last'),
+             start_alt=(alt_col_to_use, 'first'), end_alt=(alt_col_to_use, 'last'),
+             mid_dist=('dist_relative', 'mean')
+         ).reset_index()
+
     df_climb_chunks['delta_alt'] = df_climb_chunks['end_alt'] - df_climb_chunks['start_alt']
     df_climb_chunks['delta_dist'] = df_climb_chunks['end_dist'] - df_climb_chunks['start_dist']
     df_climb_chunks['pente_chunk'] = np.where(df_climb_chunks['delta_dist'] == 0, 0, (df_climb_chunks['delta_alt'] / df_climb_chunks['delta_dist']) * 100).round(1)
 
     fig = go.Figure()
 
-    # Trace 1: Remplissage par BLOCS SYNCHRONISÉS (la solution anti-gap)
+    # Trace 1: Remplissage par BLOCS SYNCHRONISÉS (anti-gap)
     for _, row in df_climb_chunks.iterrows():
         pente_norm = max(0, min(1, row['pente_chunk'] / PENTE_MAX_COULEUR))
         epsilon = 1e-9
@@ -226,9 +241,10 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
     ))
 
     # Trace 3: Tooltip (Couche invisible)
-    df_climb['pente'] = df_climb['pente'].fillna(0) # Nettoyage final pour le customdata
+    df_climb['pente'] = df_climb['pente'].fillna(0)
     df_climb['heart_rate'] = df_climb['heart_rate'].fillna(0)
     df_climb['cadence'] = df_climb['cadence'].fillna(0)
+    df_climb['speed_kmh'] = df_climb['speed'].fillna(0) * 3.6
 
     fig.add_trace(go.Scatter(
         x=df_climb['dist_relative'], y=df_climb[alt_col_to_use], mode='lines', line=dict(width=0, color='rgba(0,0,0,0)'),
@@ -253,7 +269,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
             )
 
     # Mise en forme
-    climb_info = pd.DataFrame(resultats_montees).iloc[index]
+    climb_info = pd.DataFrame(resultats_montées).iloc[index] # Utilise resultats_montées passé en argument
     titre = (f"Profil de l'Ascension n°{index + 1} (Début à {climb_info['Début (km)']} km)<br>"
              f"Distance: {climb_info['Distance (m)']} m | Dénivelé: {climb_info['Dénivelé (m)']} m "
              f"| Pente moy: {climb_info['Pente (%)']}%")
@@ -267,7 +283,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
     return fig
 
 
-# --- 4. CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
+# --- 4. CORPS PRINCIPAL DE L'APPLICATION STREAMLIT (CORRIGÉ) ---
 
 def main_app():
     st.set_page_config(layout="wide")
@@ -283,7 +299,7 @@ def main_app():
         min_climb_distance = st.slider("Longueur minimale de la montée (m)", 100, 1000, 400, 50)
         min_pente = st.slider("Pente minimale pour la détection (%)", 1.0, 5.0, 3.0, 0.5)
         max_gap = st.slider("Distance max. entre deux montées à fusionner (m)", 50, 500, 200, 50)
-        
+
         st.markdown("---")
         st.info("Le graphique des profils est affiché ci-dessous.")
 
@@ -296,9 +312,18 @@ def main_app():
             return
 
         # Lancement de l'analyse
-        df, resultats_df, montees_grouped, df_blocs, bloc_map, resultats_montées = analyze_and_detect_climbs(
+        df, resultats_df, montees_grouped, df_blocs, bloc_map, resultats_montées, analysis_error = analyze_and_detect_climbs(
             df, min_climb_distance, min_pente, max_gap
         )
+
+        if analysis_error:
+            st.error(f"Erreur d'analyse : {analysis_error}")
+            return
+
+        # Déterminer la colonne d'altitude utilisée
+        alt_col_to_use = 'altitude'
+        if 'altitude_lisse' in df.columns and not df['altitude_lisse'].isnull().all():
+             alt_col_to_use = 'altitude_lisse'
 
         # --- AFFICHAGE DU TABLEAU DE BORD ---
         st.header("📈 Tableau de Bord des Ascensions Détectées")
@@ -307,30 +332,42 @@ def main_app():
         else:
             st.dataframe(resultats_df, use_container_width=True)
 
-            # --- AFFICHAGE DES GRAPHIQUES ---
+            # --- AFFICHAGE DES GRAPHIQUES (CORRIGÉ POUR INDEXERROR) ---
             st.header("🗺️ Profils Détaillés (Gradient Synchronisé)")
-            
-            # Déterminer la colonne d'altitude utilisée
-            alt_col_to_use = 'altitude'
-            if 'altitude_lisse' in df.columns and not df['altitude_lisse'].isnull().all():
-                 alt_col_to_use = 'altitude_lisse'
 
-            montee_ids = list(montees_grouped.groups.keys())
-            
-            for index, nom_bloc in enumerate(montee_ids):
-                df_climb_original = montees_grouped.get_group(nom_bloc)
-                
-                # Créer et afficher la figure
-                fig = create_climb_figure(df_climb_original, alt_col_to_use, 100, resultats_montées, index)
-                
-                # Streamlit affiche directement les figures Plotly
-                st.plotly_chart(fig, use_container_width=True)
+            # On itère directement sur la liste des résultats (qui est déjà filtrée)
+            processed_results_count = 0
+            montee_ids = list(montees_grouped.groups.keys()) # IDs de tous les groupes
+            valid_climb_data = []
 
+            # Retrouver les données brutes pour les montées valides uniquement
+            for nom_bloc in montee_ids:
+                 segment = montees_grouped.get_group(nom_bloc)
+                 distance_segment = segment['delta_distance'].sum()
+                 # On applique le même filtre que lors de la création de resultats_montées
+                 if distance_segment >= min_climb_distance:
+                     if processed_results_count < len(resultats_montées):
+                        valid_climb_data.append((processed_results_count, segment)) # Stocke l'index correct et les données
+                        processed_results_count += 1
+                     else:
+                         st.warning(f"Incohérence détectée: Plus de montées valides que de résultats calculés.")
+                         break
+
+            # Boucler sur les données des montées valides uniquement
+            for index_resultat, df_climb_original in valid_climb_data:
+                # Créer et afficher la figure en utilisant l'index correct du résultat
+                try:
+                    # Passe resultats_montées (la liste) et index_resultat
+                    fig = create_climb_figure(df_climb_original, alt_col_to_use, 100, resultats_montées, index_resultat)
+                    st.plotly_chart(fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Erreur lors de la création du graphique pour l'ascension {index_resultat+1}.")
+                    st.exception(e) # Affiche le traceback dans l'app Streamlit
+            # --- FIN CORRECTION INDEXERROR ---
 
     else:
         st.info("Veuillez charger un fichier .fit pour commencer l'analyse.")
 
-# Pour lancer l'application, l'utilisateur doit enregistrer ce code sous un nom (ex: app.py)
-# et l'exécuter dans son terminal avec : streamlit run app.py
+# Point d'entrée pour l'exécution
 if __name__ == "__main__":
     main_app()
