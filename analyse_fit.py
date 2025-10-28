@@ -1,24 +1,24 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go # Importation spécifique ajoutée si besoin
+import plotly.colors              # Importation spécifique ajoutée si besoin
 
 # --- Importations depuis les modules ---
 from data_loader import load_and_clean_data
 from power_estimator import estimate_power
-# --- CORRECTION ICI ---
 from climb_processing import (
     calculate_derivatives,
     identify_and_filter_initial_climbs,
     group_and_merge_climbs,
     calculate_climb_summary
 )
-# --- FIN CORRECTION ---
 # Importer les deux fonctions de plotting
 from plotting import create_climb_figure, create_sprint_figure
-# Importer la fonction de détection de sprint
+# Importer la fonction de détection de sprint mise à jour
 from sprint_detector import detect_sprints
 
-# --- Fonction simplifiée pour estimer Crr (à mettre ici ou dans un autre module) ---
+# --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
     """Estimation TRES simplifiée du Crr basée sur la largeur du pneu."""
     base_crr = 0.004
@@ -60,13 +60,18 @@ def main_app():
         min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
         max_gap = st.slider("Fusion max. gap (m)", 50, 500, 200, 50, key="climb_gap")
 
-        # --- NOUVEAU : Paramètres de Détection des Sprints ---
+        # --- MODIFIÉ : Nouveaux Paramètres de Détection des Sprints ---
         st.header("4. Paramètres de Détection des Sprints")
-        min_accel = st.slider("Accélération minimale (m/s²)", 0.5, 3.0, 1.0, 0.1, key="sprint_accel")
-        min_peak_speed = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 35.0, 1.0, key="sprint_speed")
+        min_peak_speed_sprint = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
         min_sprint_duration = st.slider("Durée minimale du sprint (s)", 3, 15, 5, 1, key="sprint_duration")
-        # --- FIN NOUVEAU ---
-
+        slope_range_sprint = st.slider(
+            "Plage de pente moyenne autorisée (%)",
+            min_value=-10.0, max_value=10.0, value=(-5.0, 5.0), # Défaut -5% à +5%
+            step=0.5, key="sprint_slope_range"
+        )
+        min_gradient_sprint = slope_range_sprint[0]
+        max_gradient_sprint = slope_range_sprint[1]
+        # --- FIN MODIFICATION ---
 
     # --- TRAITEMENT DES DONNÉES ---
     if uploaded_file is not None:
@@ -79,8 +84,10 @@ def main_app():
 
         # Enchaînement des fonctions d'analyse des montées
         analysis_error = None
+        montees_grouped = None # Initialiser
+        resultats_montées = [] # Initialiser
         try:
-            df_analyzed = calculate_derivatives(df.copy()) # df_analyzed contient maintenant pente, etc.
+            df_analyzed = calculate_derivatives(df.copy())
             df_analyzed = identify_and_filter_initial_climbs(df_analyzed, min_pente)
             montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed, max_gap)
             resultats_montées = calculate_climb_summary(montees_grouped, min_climb_distance)
@@ -88,20 +95,27 @@ def main_app():
         except Exception as e:
             analysis_error = f"Erreur pendant l'analyse des montées : {e}"
             st.error(analysis_error)
-            resultats_df = pd.DataFrame(); montees_grouped = None; resultats_montées = []
-            df_analyzed = df # Revenir au df de base en cas d'erreur
+            resultats_df = pd.DataFrame()
+            df_analyzed = df # Revenir au df de base
 
-        # --- NOUVEAU : Détection des Sprints ---
+        # --- MODIFIÉ : Détection des Sprints avec les nouveaux paramètres ---
         sprint_error = None
         try:
-            # On passe df_analyzed qui contient déjà delta_time, delta_speed (calculés par calculate_derivatives)
-            sprint_results = detect_sprints(df_analyzed, min_accel, min_peak_speed, min_sprint_duration)
+            # Passe df_analyzed (contient pente, deltas...) et les nouveaux seuils
+            sprint_results = detect_sprints(
+                df_analyzed,
+                min_peak_speed_sprint, # Nouveau paramètre
+                min_gradient_sprint, # Nouveau paramètre
+                max_gradient_sprint, # Nouveau paramètre
+                min_sprint_duration
+            )
             sprints_df = pd.DataFrame(sprint_results)
         except Exception as e:
             sprint_error = f"Erreur pendant la détection des sprints : {e}"
             st.error(sprint_error)
             sprints_df = pd.DataFrame()
-        # --- FIN NOUVEAU ---
+        # --- FIN MODIFICATION ---
+
 
         # Déterminer alt_col_to_use
         alt_col_to_use = 'altitude'
@@ -138,9 +152,8 @@ def main_app():
                 except Exception as e:
                     st.error(f"Erreur création graphique ascension {index_resultat+1}.")
                     st.exception(e)
-        elif not analysis_error: # Si pas d'erreur mais pas de montées
+        elif not analysis_error:
              st.info("Aucun profil de montée à afficher.")
-        # --- FIN GRAPHIQUES MONTÉES ---
 
         # --- NOUVEAU : AFFICHAGE TABLEAU SPRINTS ---
         st.header("💨 Tableau Récapitulatif des Sprints")
@@ -155,21 +168,18 @@ def main_app():
         if not sprints_df.empty:
             for index, sprint_info in sprints_df.iterrows():
                 try:
-                    # Extraire le segment de données correspondant au sprint
                     start_time_sprint_str = sprint_info['Début']
-                    # Trouver l'index de début dans le DataFrame ANALYSÉ (df_analyzed)
-                    # Convertir l'heure str en objet time
                     start_time_obj = pd.to_datetime(start_time_sprint_str, format='%H:%M:%S').time()
-                    # Trouver tous les index qui correspondent à cette heure
+                    # Utiliser df_analyzed pour la sélection
                     matching_indices = df_analyzed.index.indexer_at_time(start_time_obj)
 
                     if len(matching_indices) > 0:
-                        start_index_iloc = matching_indices[0] # Position entière
-                        start_timestamp = df_analyzed.index[start_index_iloc] # Timestamp exact
+                        start_index_iloc = matching_indices[0]
+                        start_timestamp = df_analyzed.index[start_index_iloc]
                         duration_float = float(sprint_info['Durée (s)'])
                         end_timestamp = start_timestamp + pd.Timedelta(seconds=duration_float)
 
-                        # Sélectionner le segment basé sur les timestamps
+                        # Sélectionner le segment dans df_analyzed (qui a toutes les colonnes)
                         df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
 
                         if not df_sprint_segment.empty:
@@ -184,7 +194,7 @@ def main_app():
                 except Exception as e:
                     st.error(f"Erreur création graphique sprint {index+1}.")
                     st.exception(e)
-        elif not sprint_error: # Si pas d'erreur mais pas de sprints
+        elif not sprint_error:
             st.info("Aucun profil de sprint à afficher.")
         # --- FIN GRAPHIQUES SPRINTS ---
 
@@ -194,4 +204,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
