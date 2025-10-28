@@ -263,7 +263,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
                 showarrow=False, font=dict(size=10, color="black", family="Arial Black"), yshift=8
             )
 
-    # Mise en forme (Avec Modebar visible)
+    # Mise en forme (Avec Modebar corrigée)
     climb_info = pd.DataFrame(resultats_montées).iloc[index]
     titre = (f"Profil de l'Ascension n°{index + 1} (Début à {climb_info['Début (km)']} km)<br>"
              f"Distance: {climb_info['Distance (m)']} m | Dénivelé: {climb_info['Dénivelé (m)']} m "
@@ -279,15 +279,14 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
         yaxis_fixedrange=False,  # Permet la manipulation des axes
         xaxis_fixedrange=False,  # Permet la manipulation des axes
 
-        # --- Configuration de la Modebar ---
+        # --- CORRECTIF : Configuration Modebar simplifiée ---
         modebar=dict(
-            visible=True,        # Assure que la barre est visible (ou au survol)
+            # visible=True,  # <-- LIGNE SUPPRIMÉE CAR INVALIDE ICI
             orientation='v',     # Verticale
             activecolor='blue',
-            # Liste des boutons à afficher (inclut zoom et pan par défaut)
-            add=['hoverclosest', 'hovercompare'] # Ajoute des options de survol utiles
+            # On laisse Plotly gérer les boutons par défaut (Zoom, Pan, Reset sont inclus)
         ),
-        # --- FIN Configuration Modebar ---
+        # --- FIN CORRECTIF ---
 
         xaxis=dict(
             range=[0, df_climb['dist_relative'].max()],
@@ -400,3 +399,4 @@ def main_app():
 # Point d'entrée pour l'exécution
 if __name__ == "__main__":
     main_app()
+
