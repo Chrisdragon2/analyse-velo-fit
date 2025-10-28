@@ -263,7 +263,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
                 showarrow=False, font=dict(size=10, color="black", family="Arial Black"), yshift=8
             )
 
-# Mise en forme (Déplacement bloqué, Zoom via Modebar)
+# Mise en forme (Priorité Tooltip/Scroll Page, Zoom/Pan désactivés par défaut)
     climb_info = pd.DataFrame(resultats_montées).iloc[index]
     titre = (f"Profil de l'Ascension n°{index + 1} (Début à {climb_info['Début (km)']} km)<br>"
              f"Distance: {climb_info['Distance (m)']} m | Dénivelé: {climb_info['Dénivelé (m)']} m "
@@ -274,29 +274,21 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
         height=500, width=800,
         plot_bgcolor='white', paper_bgcolor='white',
         xaxis_title='Distance (m)', yaxis_title='Altitude (m)',
-        hovermode='closest',     # Garder 'closest' pour le tooltip au toucher
-
-        # --- MODIFIÉ : Bloquer le drag, garder le zoom possible ---
-        dragmode=False,          # Désactive COMPLETEMENT le glisser pour déplacer/zoomer
-        yaxis_fixedrange=False,  # Laisse les axes zoomables via les boutons
-        xaxis_fixedrange=False,  # Laisse les axes zoomables via les boutons
-        # --- FIN MODIFICATION ---
-
-        # Configurer la Modebar pour afficher les boutons de zoom
-        modebar=dict(
-            orientation='v',
-            activecolor='blue',
-            # On s'assure que les boutons de zoom ne sont PAS enlevés
-            # Plotly inclut zoomIn2d, zoomOut2d, autoScale2d, resetScale2d par défaut
-            # remove=[] # On peut laisser vide ou enlever des boutons spécifiques non liés au zoom/pan
-        ),
+        hovermode='closest',     # Affiche la bulle au plus proche
+        dragmode=False,          # Désactive le drag par défaut
 
         xaxis=dict(
             range=[0, df_climb['dist_relative'].max()],
-            gridcolor='#EAEAEA', tick0=0, dtick=200
+            gridcolor='#EAEAEA', tick0=0, dtick=200,
+            fixedrange=True      # <-- Empêche TOUT zoom/pan direct sur l'axe X
         ),
-        yaxis=dict(gridcolor='#EAEAEA'),
+        yaxis=dict(
+            gridcolor='#EAEAEA',
+            fixedrange=True      # <-- Empêche TOUT zoom/pan direct sur l'axe Y
+        ),
         showlegend=False,
+        # La modebar s'affichera par défaut, mais les actions directes sont bloquées
+        modebar=dict(remove=[]) # Assure que les boutons de zoom restent
     )
     return fig
 
@@ -402,5 +394,6 @@ def main_app():
 # Point d'entrée pour l'exécution
 if __name__ == "__main__":
     main_app()
+
 
 
