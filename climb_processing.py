@@ -24,6 +24,9 @@ def calculate_derivatives(df):
     df_processed['delta_altitude'] = df_processed['altitude_lisse'].diff().fillna(0)
     df_processed['pente'] = np.where(df_processed['delta_distance'] == 0, 0, (df_processed['delta_altitude'] / df_processed['delta_distance']) * 100)
     df_processed['pente'] = df_processed['pente'].fillna(0)
+    df_processed['delta_time'] = df_processed.index.to_series().diff().dt.total_seconds().fillna(1.0).clip(lower=0.1)
+    df_processed['delta_speed'] = df_processed['speed'].diff().fillna(0)
+    
     return df_processed
 
 def identify_and_filter_initial_climbs(df, min_pente):
@@ -122,3 +125,4 @@ def calculate_climb_summary(montees_grouped, min_climb_distance):
             'Puissance Max Est. (W)': f"{power_max:.0f}" if pd.notna(power_max) else "N/A"
         })
     return resultats_montees
+
