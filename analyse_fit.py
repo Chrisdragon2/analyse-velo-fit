@@ -263,7 +263,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
                 showarrow=False, font=dict(size=10, color="black", family="Arial Black"), yshift=8
             )
 
-# Mise en forme (Priorité Tooltip/Scroll Page, Zoom/Pan désactivés par défaut)
+# Mise en forme (Panoramique activé, Zoom via Modebar/Shift)
     climb_info = pd.DataFrame(resultats_montées).iloc[index]
     titre = (f"Profil de l'Ascension n°{index + 1} (Début à {climb_info['Début (km)']} km)<br>"
              f"Distance: {climb_info['Distance (m)']} m | Dénivelé: {climb_info['Dénivelé (m)']} m "
@@ -274,21 +274,24 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
         height=500, width=800,
         plot_bgcolor='white', paper_bgcolor='white',
         xaxis_title='Distance (m)', yaxis_title='Altitude (m)',
-        hovermode='closest',     # Affiche la bulle au plus proche
-        dragmode=False,          # Désactive le drag par défaut
+        hovermode='closest',     # Garder 'closest' pour le tooltip
+        dragmode='pan',          # Le glisser déplace (pan) par défaut
+        yaxis_fixedrange=False,  # Permet la manipulation des axes (nécessaire pour pan et zoom boutons)
+        xaxis_fixedrange=False,  # Permet la manipulation des axes (nécessaire pour pan et zoom boutons)
+
+        # Configurer la Modebar pour qu'elle soit présente
+        modebar=dict(
+            orientation='v',
+            activecolor='blue',
+            # On laisse les boutons par défaut (Zoom, Pan, Reset sont inclus)
+        ),
 
         xaxis=dict(
             range=[0, df_climb['dist_relative'].max()],
-            gridcolor='#EAEAEA', tick0=0, dtick=200,
-            fixedrange=True      # <-- Empêche TOUT zoom/pan direct sur l'axe X
+            gridcolor='#EAEAEA', tick0=0, dtick=200
         ),
-        yaxis=dict(
-            gridcolor='#EAEAEA',
-            fixedrange=True      # <-- Empêche TOUT zoom/pan direct sur l'axe Y
-        ),
+        yaxis=dict(gridcolor='#EAEAEA'),
         showlegend=False,
-        # La modebar s'affichera par défaut, mais les actions directes sont bloquées
-        modebar=dict(remove=[]) # Assure que les boutons de zoom restent
     )
     return fig
 
@@ -394,6 +397,7 @@ def main_app():
 # Point d'entrée pour l'exécution
 if __name__ == "__main__":
     main_app()
+
 
 
 
