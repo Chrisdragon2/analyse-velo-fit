@@ -29,14 +29,9 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
         st.warning(f"Colonnes manquantes pour détecter les sprints : {', '.join(missing_cols)}. Détection annulée.")
         return []
 
-    # Calculer delta_time si absent (sécurité)
-    if 'delta_time' not in df_sprint.columns:
-         if not isinstance(df_sprint.index, pd.DatetimeIndex):
-             try: df_sprint.index = pd.to_datetime(df_sprint.index)
-             except Exception:
-                 st.error("Index non DatetimeIndex pour calculer delta_time dans detect_sprints.")
-                 return [] # Stop if index is wrong
-         df_sprint['delta_time'] = df_sprint.index.to_series().diff().dt.total_seconds().fillna(1.0).clip(lower=0.1)
+    # --- S'assurer que delta_speed existe ou le calculer ---
+    if 'delta_speed' not in df_sprint.columns:
+         df_sprint['delta_speed'] = df_sprint['speed'].diff().fillna(0)
 
     # Convertir la vitesse seuil en m/s
     min_speed_ms = min_speed_kmh / 3.6
@@ -100,3 +95,4 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
                 })
 
     return sprints
+
