@@ -1,0 +1,13 @@
+[theme]
+# Couleur principale (widgets interactifs comme les sliders)
+primaryColor="#0068C9" # Bleu Streamlit classique, tu peux choisir une autre couleur
+
+# Couleurs de fond
+backgroundColor="#F0F2F6" # Fond principal (gris très clair)
+secondaryBackgroundColor="#FFFFFF" # Fond de la sidebar (blanc)
+
+# Couleurs du texte
+textColor="#31333F" # Texte principal (presque noir)
+
+# Police (utilise la police système par défaut, plus moderne qu'Arial)
+font="sans serif"
