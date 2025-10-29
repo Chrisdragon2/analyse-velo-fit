@@ -21,8 +21,7 @@ except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop() # Arrête l'exécution si les imports échouent
 
-# --- NOUVELLE FONCTION : Style CSS ---
-# --- NOUVELLE FONCTION : Style CSS (Corrigée) ---
+# --- NOUVELLE FONCTION : Style CSS (Correction Finale) ---
 def load_custom_css():
     """Charge du CSS personnalisé pour un look moderne et épuré."""
     st.markdown(
@@ -92,20 +91,20 @@ def load_custom_css():
         /* --- 7. Cacher le footer "Made with Streamlit" --- */
         footer { visibility: hidden; }
 
-        /* --- 8. CORRECTION : Correction alignement st.metric (Scopé) --- */
-        /* On ajoute [data-testid="stAppViewContainer"] pour ne cibler QUE le contenu principal */
+        /* --- 8. CORRECTION : Correction alignement st.metric (Scopé aux Onglets) --- */
+        /* On cible MAINTENANT les classes UNIQUEMENT si elles sont dans un onglet */
         
-        [data-testid="stAppViewContainer"] .st-emotion-cache-1xarl3l {
+        [data-testid="stTabContent"] .st-emotion-cache-1xarl3l {
             display: flex;
             flex-direction: column;
             height: 100%;
         }
-        [data-testid="stAppViewContainer"] .st-emotion-cache-zrxg2o {
+        [data-testid="stTabContent"] .st-emotion-cache-zrxg2o {
             display: flex;
             flex-direction: column;
             flex-grow: 1;
         }
-        [data-testid="stAppViewContainer"] .st-emotion-cache-1m3sd3i {
+        [data-testid="stTabContent"] .st-emotion-cache-1m3sd3i {
             flex-grow: 1;
         }
         /* --- FIN CORRECTION --- */
@@ -324,5 +323,6 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
 
