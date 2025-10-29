@@ -65,7 +65,7 @@ def main_app():
         # --- MODIFIÉ : Ajout du curseur pour la fenêtre d'analyse ---
         chunk_distance_m = st.select_slider(
             "Fenêtre d'Analyse Pente (m)",
-            options=[100, 200, 500, 1000, 1500, 2000], # Options de fenêtre
+            options=[25, 50, 100, 150, 200, 500, 750, 1000, 1250, 1500, 2000], # Options de fenêtre
             value=100, # Défaut à 100m
             key="chunk_distance"
         )
@@ -210,3 +210,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
