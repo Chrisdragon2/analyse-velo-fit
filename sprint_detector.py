@@ -1,4 +1,4 @@
-# sprint_detector.py
+# sprint_detector.py (Version corrigée de la fusion)
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -14,7 +14,8 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
     required_cols = ['speed', 'distance', 'pente', 'delta_time']
     missing_cols = [col for col in required_cols if col not in df_sprint.columns]
     if missing_cols:
-        st.warning(f"Colonnes manquantes : {', '.join(missing_cols)}. Détection sprint annulée.")
+        # Utiliser print() au lieu de st.warning() pour le test notebook
+        print(f"AVERTISSEMENT: Colonnes manquantes : {', '.join(missing_cols)}. Détection sprint annulée.")
         return []
     if 'delta_speed' not in df_sprint.columns:
         df_sprint['delta_speed'] = df_sprint['speed'].diff().fillna(0)
@@ -39,60 +40,81 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
                     'start_time': segment.index[0], 'end_time': segment.index[-1],
                     'start_distance': segment['distance'].iloc[0], 'end_distance': segment['distance'].iloc[-1],
                 })
-    if not initial_sprints_data:
-        return []
+    if not initial_sprints_data: return []
 
     # --- 2. Logique de Fusion par DISTANCE (CORRIGÉE) ---
+    print("\n--- DEBUG FUSION SPRINTS (Final) ---")
+    
+    df_sprint_blocs = pd.DataFrame(initial_sprints_data)
     merged_sprints_data = []
-    if not initial_sprints_data: return []
-    df_sprint_blocs = pd.DataFrame(initial_sprints_data) # Convertir en DataFrame pour accès plus facile
     bloc_map = {}
     current_merged_id = 0
 
+    if df_sprint_blocs.empty: return []
+
     for i in range(len(df_sprint_blocs)):
         current_sprint_bloc = df_sprint_blocs.iloc[i]
-        if current_sprint_bloc['block_id'] in bloc_map: continue
         
+        if current_sprint_bloc['block_id'] in bloc_map:
+            continue
+            
         current_merged_id += 1
         bloc_map[current_sprint_bloc['block_id']] = current_merged_id
         
-        # Le segment fusionné commence avec ce bloc
-        # Il est crucial de récupérer les données depuis df_sprint pour inclure la pente, vitesse, etc.
-        merged_segment_data = df_sprint[df_sprint['high_speed_block'] == current_sprint_bloc['block_id']]
+        # Trouver la première et la dernière ligne du segment à fusionner
+        start_time_fusion = current_sprint_bloc['start_time']
+        end_time_fusion = current_sprint_bloc['end_time']
         
+        # Le segment fusionné commence avec ce bloc
         j = i + 1
         while j < len(df_sprint_blocs):
             next_sprint_bloc = df_sprint_blocs.iloc[j]
             
-            # Utiliser la fin du segment de données fusionné actuel
-            gap_start = next_sprint_bloc['start_distance']
-            gap_end = merged_segment_data['distance'].iloc[-1] # Fin du dernier segment de données ajouté
-            distance_gap = gap_start - gap_end
+            # --- CALCUL DU GAP EN DISTANCE ---
+            gap_start_dist = next_sprint_bloc['start_distance']
+            gap_end_dist = df_sprint_blocs.iloc[j-1]['end_distance'] # Fin du bloc précédent initial
+            distance_gap = gap_start_dist - gap_end_dist
+            
+            # Pour le debug, on utilise la fin de l'intervalle TEMP de fusion, pour éviter confusion
+            print(f"DEBUG: Fin Précédent (Temp): {gap_end_dist:.0f}m, Début Suivant: {gap_start_dist:.0f}m, Gap: {distance_gap:.0f}m")
             
             if distance_gap >= 0 and distance_gap <= max_gap_distance_m:
-                # Fusionner : récupérer TOUTES les données entre la fin du segment précédent et la fin du suivant
-                segment_a_ajouter = df_sprint.loc[gap_end:next_sprint_bloc['end_time']]
-                # Concaténer en enlevant le premier point (doublon)
-                merged_segment_data = pd.concat([merged_segment_data, segment_a_ajouter.iloc[1:]])
+                print(f"   -> Fusion (Gap {distance_gap:.0f}m <= {max_gap_distance_m}m)")
+                
+                # METTRE À JOUR LA FIN DU SEGMENT FUSIONNÉ avec la fin du NOUVEAU bloc
+                end_time_fusion = next_sprint_bloc['end_time'] 
+                
+                # Marquer le bloc suivant comme fusionné
                 bloc_map[next_sprint_bloc['block_id']] = current_merged_id
                 j += 1
             else:
+                print(f"   -> Pas de fusion (Gap {distance_gap:.0f}m > {max_gap_distance_m}m)")
                 break
         
-        merged_sprints_data.append(merged_segment_data) # Stocker le DataFrame fusionné
+        # Sélectionner TOUTES les données du début du premier bloc à la fin du dernier bloc fusionné
+        # C'est la ligne la plus cruciale pour obtenir toutes les colonnes requises (y compris la pente)
+        segment = df_sprint.loc[start_time_fusion:end_time_fusion]
+        merged_sprints_data.append(segment)
+
+    print("--- FIN DEBUG FUSION ---\n")
 
     # --- 3. Calcul des Statistiques Finales ---
-    for i, segment in enumerate(merged_sprints_data):
+    for i, segment in enumerate(merged_sprints_data): # segment est maintenant un DataFrame
         
+        # Sécurité: s'assurer que le segment n'est pas vide
+        if segment.empty: continue
+            
         start_time = segment.index[0]; end_time = segment.index[-1]
-        duration = (end_time - start_time).total_seconds() + segment['delta_time'].iloc[-1] if not segment.empty else 0
-        peak_speed_kmh = segment['speed'].max() * 3.6 if not segment.empty else 0
-        avg_speed_kmh = segment['speed'].mean() * 3.6 if not segment.empty else 0
-        avg_gradient = segment['pente'].mean() if not segment.empty else 0
         
-        # --- MODIFIÉ : Calculer début et fin en km ---
-        start_distance_km = segment['distance'].iloc[0] / 1000 if not segment.empty else 0
-        end_distance_km = segment['distance'].iloc[-1] / 1000 if not segment.empty else 0
+        # Utiliser .iloc[-1] est plus sûr que .loc[end_time] pour delta_time
+        duration = (end_time - start_time).total_seconds() + segment['delta_time'].iloc[-1]
+        
+        peak_speed_kmh = segment['speed'].max() * 3.6
+        avg_speed_kmh = segment['speed'].mean() * 3.6
+        avg_gradient = segment['pente'].mean()
+        
+        start_distance_km = segment['distance'].iloc[0] / 1000
+        end_distance_km = segment['distance'].iloc[-1] / 1000
         
         segment['delta_distance'] = segment['distance'].diff().fillna(0)
         distance_covered = segment['delta_distance'].sum()
@@ -104,13 +126,12 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
             else: segment['delta_time'] = 1.0
         
         segment['acceleration'] = np.where(segment['delta_time'] == 0, 0, segment['delta_speed'] / segment['delta_time'])
-        max_accel = segment['acceleration'].max() if not segment.empty else 0
+        max_accel = segment['acceleration'].max()
         
         sprints_final.append({
             'Début': start_time,
-            # --- MODIFIÉ : Formater avec 3 décimales ---
             'Début (km)': f"{start_distance_km:.3f}", 
-            'Fin (km)': f"{end_distance_km:.3f}", # Nouvelle colonne
+            'Fin (km)': f"{end_distance_km:.3f}",
             'Durée (s)': f"{duration:.1f}",
             'Vitesse Max (km/h)': f"{peak_speed_kmh:.1f}",
             'Vitesse Moy (km/h)': f"{avg_speed_kmh:.1f}",
