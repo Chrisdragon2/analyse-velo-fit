@@ -1,6 +1,13 @@
 [theme]
-primaryColor="#31333F"
-backgroundColor="#FFFFFF"
+# Couleur principale (widgets) en rouge vif
+primaryColor="#FF0000"
+
+# Couleur de FOND en jaune vif
+backgroundColor="#FFFF00"
+
+# Couleur de la sidebar
 secondaryBackgroundColor="#F0F2F6"
-textColor="#31333F"
+
+# Couleur du texte en noir
+textColor="#000000"
 font="sans serif"
