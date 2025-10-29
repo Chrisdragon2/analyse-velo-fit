@@ -19,10 +19,109 @@ try:
     from sprint_detector import detect_sprints
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
-    st.stop()
+    st.stop() # Arrête l'exécution si les imports échouent
+
+# --- NOUVELLE FONCTION : Style CSS ---
+def load_custom_css():
+    """Charge du CSS personnalisé pour un look moderne et épuré."""
+    st.markdown(
+        """
+        <style>
+        
+        /* --- 1. Global & Typographie --- */
+        body {
+            background-color: #F0F2F6; /* Fond de page gris très clair */
+        }
+        /* Utilise la police système moderne */
+        html, body, [class*="st-"], .st-emotion-cache-10trblm {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        /* --- 2. Titre Principal --- */
+        h1 {
+            color: #111;
+            font-weight: 600;
+            font-size: 2.2em;
+            border-bottom: none; /* Enlève la bordure précédente */
+            padding-bottom: 0;
+        }
+        
+        /* --- 3. Barre Latérale (Sidebar) --- */
+        [data-testid="stSidebar"] {
+            background-color: #FFFFFF; /* Sidebar blanche */
+            border-right: 1px solid #E0E0E0; /* Bordure subtile */
+        }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+             color: #333; /* Titres de sidebar plus sombres */
+        }
+
+        /* --- 4. Contenu Principal (Look "Carte") --- */
+        /* Cible les onglets, les tableaux, les graphiques et les métriques */
+        [data-testid="stTabs"], [data-testid="stDataFrame"], [data-testid="stPlotlyChart"], [data-testid="stMetric"] {
+            background-color: #FFFFFF; /* Fond blanc */
+            border: 1px solid #E0E0E0; /* Bordure très claire */
+            border-radius: 8px; /* Coins arrondis */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02); /* Ombre très subtile */
+            padding: 16px;
+            box-sizing: border-box;
+            margin-bottom: 16px; /* Espace entre les éléments */
+        }
+        
+        /* --- Correction alignement st.metric --- */
+        .st-emotion-cache-1xarl3l { /* Cible le conteneur de la colonne */
+            display: flex;
+            flex-direction: column;
+            height: 100%; /* Force la colonne à prendre toute la hauteur */
+        }
+        .st-emotion-cache-zrxg2o { /* Cible le conteneur st.metric */
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* Force la métrique à s'étendre */
+        }
+        .st-emotion-cache-1m3sd3i { /* Cible la zone de contenu (valeur + label) */
+            flex-grow: 1; /* Pousse le contenu vers le haut */
+        }
+
+        /* --- 5. Onglets (Tabs) --- */
+        [data-testid="stTabs"] { padding: 0; }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            padding: 0 16px;
+            border-bottom: 1px solid #E0E0E0;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"] {
+            background-color: transparent;
+            color: #555;
+            font-weight: 500;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+            background-color: transparent;
+            border-bottom: 3px solid #0068C9; /* (Bleu Streamlit) */
+            color: #0068C9;
+            font-weight: 600;
+        }
+        [data-testid="stTabContent"] { padding: 16px; }
+        
+        /* --- 6. Titres de Section (dans les onglets) --- */
+        h2 {
+            color: #333;
+            font-weight: 600;
+            border-bottom: 1px solid #EEE;
+            padding-bottom: 8px;
+            margin-top: 16px;
+        }
+
+        /* --- 7. Cacher le footer "Made with Streamlit" --- */
+        footer { visibility: hidden; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+# --- FIN DE LA FONCTION CSS ---
+
 
 # --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
+    """Estimation TRES simplifiée du Crr basée sur la largeur du pneu."""
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
     if width_mm > 25:
@@ -32,15 +131,22 @@ def estimate_crr_from_width(width_mm):
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
-    st.set_page_config(layout="wide")
-    st.title("🚴 Analyseur de Sortie FIT")
+    # Configuration de la page et chargement CSS
+    st.set_page_config(
+        layout="wide",
+        page_title="Analyseur FIT", # Titre épuré
+        page_icon="🚴"                # Icône de l'onglet
+    )
+    load_custom_css() # Appeler la fonction CSS
+    
+    st.title("Analyseur d'Ascensions et Sprints") # Titre épuré
     
     # --- INPUT UTILISATEUR (Sidebar avec Expanders) ---
     with st.sidebar:
         st.header("1. Charger le Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
 
-        # --- MODIFIÉ : Section 2 (Dépliée par défaut) ---
+        # Section 2 : Paramètres Physiques (Dépliée par défaut)
         with st.expander("2. Paramètres Physiques", expanded=True):
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
@@ -57,7 +163,7 @@ def main_app():
             cda_value = 0.38 # Pour position cocottes
             st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
 
-        # --- MODIFIÉ : Section 3 (Repliée par défaut) ---
+        # Section 3 : Montées (Repliée par défaut)
         with st.expander("3. Paramètres des Montées", expanded=False):
             min_climb_distance = st.slider("Longueur min. montée (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
@@ -69,7 +175,7 @@ def main_app():
                 key="chunk_distance"
             )
 
-        # --- MODIFIÉ : Section 4 (Repliée par défaut) ---
+        # Section 4 : Sprints (Repliée par défaut)
         with st.expander("4. Paramètres des Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée minimale du sprint (s)", 3, 15, 5, 1, key="sprint_duration")
@@ -128,8 +234,8 @@ def main_app():
     if 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
          alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS ---
-    tab_summary, tab_climbs, tab_sprints = st.tabs(["📊 Résumé Global", "⛰️ Analyse des Montées", "💨 Analyse des Sprints"])
+    # --- STRUCTURE PAR ONGLETS (Titres épurés) ---
+    tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
@@ -142,29 +248,25 @@ def main_app():
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             temps_total_sec = (df.index[-1] - df.index[0]).total_seconds()
             col3.metric("Temps Total", f"{pd.to_timedelta(temps_total_sec, unit='s')}")
-            # Calculer Vitesse Moyenne basée sur temps déplacement (plus précis)
-            temps_deplacement_sec = len(df[df['speed'] > 1.0]) # Seuil de 1m/s = 3.6km/h
+            temps_deplacement_sec = len(df[df['speed'] > 1.0])
             if temps_deplacement_sec > 0:
                 vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6
             else:
                 vitesse_moy = 0
             col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
-            
-            # (On ajoutera la carte et le profil global ici)
-            
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
 
     # --- Onglet 2: Montées ---
     with tab_climbs:
-        st.header("📈 Tableau de Bord des Montées")
+        st.header("Tableau de Bord des Montées") # Titre épuré
         if analysis_error: st.error(analysis_error)
         elif resultats_df.empty:
             st.warning(f"Aucune ascension ({min_climb_distance}m+, {min_pente}%+) trouvée.")
         else:
             st.dataframe(resultats_df.drop(columns=['index'], errors='ignore'), use_container_width=True)
 
-        st.header("🗺️ Profils Détaillés des Montées")
+        st.header("Profils Détaillés des Montées") # Titre épuré
         if montees_grouped is not None and not resultats_df.empty:
             processed_results_count = 0
             montee_ids = list(montees_grouped.groups.keys())
@@ -180,7 +282,6 @@ def main_app():
                      else: st.warning(f"Incohérence détectée (montées)."); break
             for index_resultat, df_climb_original in valid_climb_data:
                 try:
-                    # On passe la variable 'chunk_distance_m' du slider
                     fig = create_climb_figure(df_climb_original.copy(), alt_col_to_use, chunk_distance_m, resultats_montées, index_resultat)
                     st.plotly_chart(fig, use_container_width=True, key=f"climb_chart_{index_resultat}")
                 except Exception as e:
@@ -190,7 +291,7 @@ def main_app():
 
     # --- Onglet 3: Sprints ---
     with tab_sprints:
-        st.header("💨 Tableau Récapitulatif des Sprints")
+        st.header("Tableau Récapitulatif des Sprints") # Titre épuré
         if sprint_error: st.error(sprint_error)
         elif sprints_df_full.empty:
             st.warning("Aucun sprint détecté avec ces paramètres.")
@@ -199,7 +300,7 @@ def main_app():
             cols_existantes = [col for col in cols_to_show if col in sprints_df_full.columns]
             st.dataframe(sprints_df_full[cols_existantes], use_container_width=True)
 
-        st.header("⚡ Profils Détaillés des Sprints")
+        st.header("Profils Détaillés des Sprints") # Titre épuré
         if not sprints_df_full.empty:
             for index, sprint_info in sprints_df_full.iterrows():
                 try:
