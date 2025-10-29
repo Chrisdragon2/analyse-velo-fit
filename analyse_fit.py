@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import plotly.colors
+import plotly.graph_objects as go # Importation spécifique ajoutée si besoin
+import plotly.colors              # Importation spécifique ajoutée si besoin
 import io # Ajouté pour BytesIO
 
 # --- Importations depuis les modules ---
@@ -17,7 +17,7 @@ try:
         calculate_climb_summary
     )
     from plotting import create_climb_figure, create_sprint_figure
-    from sprint_detector import detect_sprints # Fonction mise à jour avec fusion
+    from sprint_detector import detect_sprints # Fonction mise à jour avec fusion par distance
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop() # Arrête l'exécution si les imports échouent
@@ -62,7 +62,7 @@ def main_app():
         st.header("3. Paramètres de Détection des Montées")
         min_climb_distance = st.slider("Longueur min. montée (m)", 100, 1000, 400, 50, key="climb_dist")
         min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
-        max_gap_climb = st.slider("Fusion max. gap (m)", 50, 500, 200, 50, key="climb_gap") # Renommé pour clarté
+        max_gap_climb = st.slider("Fusion max. gap (m)", 50, 500, 200, 50, key="climb_gap")
 
         st.header("4. Paramètres de Détection des Sprints")
         min_peak_speed_sprint = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
@@ -74,16 +74,16 @@ def main_app():
         )
         min_gradient_sprint = slope_range_sprint[0]
         max_gradient_sprint = slope_range_sprint[1]
-        # --- NOUVEAU CURSEUR POUR FUSION SPRINT ---
-        max_gap_sec_sprint = st.slider(
-            "Temps max. entre sprints à fusionner (s)", # Label
-            min_value=0,        # Valeur minimale (ex: 0 seconde)
-            max_value=45,       # Valeur maximale (ex: 45 secondes)
-            value=15,           # Valeur par défaut (ex: 15 secondes)
-            step=1,             # Pas d'incrémentation
-            key="sprint_gap"    # Identifiant unique
+        # --- MODIFIÉ : Curseur pour DISTANCE de fusion sprint ---
+        max_gap_distance_sprint = st.slider(
+            "Distance max. entre sprints à fusionner (m)", # Nouveau label
+            min_value=10,        # Valeur minimale (ex: 10 mètres)
+            max_value=200,       # Valeur maximale (ex: 200 mètres)
+            value=50,           # Valeur par défaut (ex: 50 mètres)
+            step=10,             # Pas d'incrémentation
+            key="sprint_gap_dist" # Nouvelle clé unique
         )
-        # --- FIN NOUVEAU CURSEUR ---
+        # --- FIN MODIFICATION ---
 
     # --- TRAITEMENT DES DONNÉES ---
     if uploaded_file is not None:
@@ -97,11 +97,11 @@ def main_app():
         # Enchaînement des fonctions d'analyse des montées
         analysis_error = None
         montees_grouped = None; resultats_montées = []; df_blocs = None; bloc_map = {}
+        # S'assurer que df_analyzed est défini même en cas d'erreur
+        df_analyzed = df # Initialiser avec df de base
         try:
-            # Assigner df_analyzed ici pour être sûr qu'il existe
             df_analyzed = calculate_derivatives(df.copy())
             df_analyzed = identify_and_filter_initial_climbs(df_analyzed, min_pente)
-            # Utiliser max_gap_climb ici
             montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed, max_gap_climb)
             resultats_montées = calculate_climb_summary(montees_grouped, min_climb_distance)
             resultats_df = pd.DataFrame(resultats_montées)
@@ -109,10 +109,9 @@ def main_app():
             analysis_error = f"Erreur pendant l'analyse des montées : {e}"
             st.error(analysis_error)
             resultats_df = pd.DataFrame()
-            if 'df' in locals(): df_analyzed = df # Revenir au df de base si df existe
 
 
-        # Détection des Sprints (avec fusion)
+        # --- MODIFIÉ : Détection des Sprints avec fusion par DISTANCE ---
         sprint_error = None
         sprints_df_full = pd.DataFrame() # Initialiser
         try:
@@ -124,22 +123,22 @@ def main_app():
                     min_gradient_sprint,
                     max_gradient_sprint,
                     min_sprint_duration,
-                    max_gap_sec_sprint # --- Passer le nouveau paramètre ---
+                    max_gap_distance_sprint # --- Passer le nouveau paramètre DISTANCE ---
                 )
                 sprints_df_full = pd.DataFrame(sprint_results)
             else:
-                 raise ValueError("df_analyzed n'a pas été défini (erreur analyse montées ?)")
+                 raise ValueError("df_analyzed n'a pas été défini.")
 
         except Exception as e:
             sprint_error = f"Erreur pendant la détection des sprints : {e}"
             st.error(sprint_error)
             sprints_df_full = pd.DataFrame()
+        # --- FIN MODIFICATION ---
 
 
         # Déterminer alt_col_to_use
         alt_col_to_use = 'altitude'
-        # Utiliser df_analyzed pour vérifier la colonne
-        if 'df_analyzed' in locals() and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
+        if 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
              alt_col_to_use = 'altitude_lisse'
 
         # --- AFFICHAGE TABLEAU MONTÉES ---
@@ -155,14 +154,13 @@ def main_app():
             processed_results_count = 0
             montee_ids = list(montees_grouped.groups.keys())
             valid_climb_data = []
-            # Utiliser df_analyzed pour être sûr d'avoir delta_distance
             for nom_bloc in montee_ids:
+                 # Utiliser df_analyzed pour get_group car il contient bloc_fusionne
                  segment = montees_grouped.get_group(nom_bloc)
-                 # Vérifier si delta_distance existe dans le segment source (df_analyzed)
+                 # Vérifier delta_distance sur df_analyzed pour le filtre
                  if 'delta_distance' not in df_analyzed.columns:
-                     st.error("Colonne 'delta_distance' manquante dans df_analyzed.")
-                     continue # ou break
-
+                     st.error("Colonne 'delta_distance' manquante dans df_analyzed pour filtrage montées.")
+                     break
                  distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
 
                  if distance_segment >= min_climb_distance:
@@ -180,6 +178,7 @@ def main_app():
         elif not analysis_error:
              st.info("Aucun profil de montée à afficher.")
 
+
         # --- AFFICHAGE TABLEAU SPRINTS ---
         st.header("💨 Tableau Récapitulatif des Sprints")
         if sprints_df_full.empty and not sprint_error:
@@ -190,6 +189,7 @@ def main_app():
             cols_existantes = [col for col in cols_to_show if col in sprints_df_full.columns]
             st.dataframe(sprints_df_full[cols_existantes], use_container_width=True)
 
+
         # --- AFFICHAGE GRAPHIQUES SPRINTS ---
         st.header("⚡ Profils Détaillés des Sprints")
         if not sprints_df_full.empty:
@@ -199,17 +199,30 @@ def main_app():
                     if not isinstance(start_timestamp, pd.Timestamp):
                         st.warning(f"Format début incorrect sprint {index+1}. Skipping.")
                         continue
-                    duration_float = float(sprint_info['Durée (s)'])
+                    # S'assurer que 'Durée (s)' est bien convertible en float
+                    try:
+                        duration_float = float(sprint_info['Durée (s)'])
+                    except (ValueError, TypeError):
+                        st.warning(f"Format durée incorrect pour sprint {index+1}. Skipping.")
+                        continue
+
                     end_timestamp = start_timestamp + pd.Timedelta(seconds=duration_float)
 
-                    # Utiliser df_analyzed ici aussi pour avoir toutes les colonnes
-                    df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
+                    # Utiliser df_analyzed ici aussi
+                    # Vérifier si les timestamps existent dans l'index avant .loc
+                    if start_timestamp in df_analyzed.index and end_timestamp <= df_analyzed.index[-1]:
+                         df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
+                    elif start_timestamp in df_analyzed.index: # Si end_timestamp dépasse
+                         df_sprint_segment = df_analyzed.loc[start_timestamp:]
+                    else: # Si start_timestamp n'existe pas (peu probable mais sécurité)
+                         df_sprint_segment = pd.DataFrame()
+
 
                     if not df_sprint_segment.empty:
                          fig_sprint = create_sprint_figure(df_sprint_segment, sprint_info, index)
                          st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else:
-                         st.warning(f"Segment vide pour sprint {index+1}.")
+                         st.warning(f"Impossible d'extraire les données pour le sprint {index+1} (segment vide ou timestamps invalides).")
 
                 except KeyError as ke:
                      st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}.")
@@ -226,4 +239,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
