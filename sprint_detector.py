@@ -3,10 +3,10 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 
-def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, min_duration_sec=5, max_gap_sec=10):
+def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, min_duration_sec=5, max_gap_distance_m=50):
     """
     Détecte les segments de sprint basés sur la vitesse et la pente,
-    et fusionne les sprints rapprochés.
+    et fusionne les sprints rapprochés en DISTANCE.
 
     Args:
         df (pd.DataFrame): DataFrame indexé par timestamp avec 'speed', 'distance', 'pente', 'delta_time'.
@@ -14,7 +14,7 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
         min_gradient (float): Pente moyenne minimale (%) pendant le sprint.
         max_gradient (float): Pente moyenne maximale (%) pendant le sprint.
         min_duration_sec (int): Durée minimale (secondes) pour qu'un effort soit classé comme sprint.
-        max_gap_sec (int): Temps maximum (secondes) entre deux sprints pour les fusionner.
+        max_gap_distance_m (int): Distance maximale (mètres) entre deux sprints pour les fusionner.
 
     Returns:
         list: Une liste de dictionnaires, chaque dictionnaire représentant un sprint (potentiellement fusionné).
@@ -28,10 +28,8 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
     if missing_cols:
         st.warning(f"Colonnes manquantes : {', '.join(missing_cols)}. Détection sprint annulée.")
         return []
-    # Assurer delta_speed pour calcul accel max
     if 'delta_speed' not in df_sprint.columns:
         df_sprint['delta_speed'] = df_sprint['speed'].diff().fillna(0)
-
 
     # --- 1. Détection des Sprints Initiaux (non fusionnés) ---
     min_speed_ms = min_speed_kmh / 3.6
@@ -53,55 +51,56 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
                 initial_sprints_data.append({
                     'start_time': segment.index[0],
                     'end_time': segment.index[-1],
-                    'segment_data': segment # Garde les données pour recalculer après fusion
+                    'start_distance': segment['distance'].iloc[0], # Ajout distance début
+                    'end_distance': segment['distance'].iloc[-1],   # Ajout distance fin
+                    'segment_data': segment
                 })
 
     if not initial_sprints_data:
-        return [] # Aucun sprint initial trouvé
+        return []
 
-    # --- 2. Logique de Fusion ---
+    # --- 2. Logique de Fusion par DISTANCE ---
     merged_sprints_data = []
     if not initial_sprints_data: return []
 
-    current_merged_sprint = initial_sprints_data[0] # Commence avec le premier
+    current_merged_sprint = initial_sprints_data[0]
 
     for i in range(1, len(initial_sprints_data)):
         previous_sprint = current_merged_sprint
         next_sprint = initial_sprints_data[i]
 
-        # Calculer le gap temporel
-        time_gap = (next_sprint['start_time'] - previous_sprint['end_time']).total_seconds()
+        # Calculer le gap en DISTANCE
+        distance_gap = next_sprint['start_distance'] - previous_sprint['end_distance']
 
-        if time_gap <= max_gap_sec:
-            # Fusionner : étend la fin et concatène les données
+        if distance_gap <= max_gap_distance_m and distance_gap >= 0: # Assurer que le suivant est bien après
+            # Fusionner : étend la fin et récupère TOUTES les données entre les deux
             current_merged_sprint['end_time'] = next_sprint['end_time']
-            # On doit récupérer les données entre les deux sprints pour le recalcul
+            current_merged_sprint['end_distance'] = next_sprint['end_distance']
+            # Sélectionner toutes les données du début du premier au dernier du suivant
             all_data_between = df_sprint.loc[previous_sprint['start_time']:next_sprint['end_time']]
             current_merged_sprint['segment_data'] = all_data_between
         else:
-            # Pas de fusion, enregistre le sprint fusionné précédent et commence un nouveau
+            # Pas de fusion
             merged_sprints_data.append(current_merged_sprint)
             current_merged_sprint = next_sprint
 
-    # Ajouter le dernier sprint (qui n'a pas été suivi d'un autre ou n'a pas fusionné)
+    # Ajouter le dernier sprint
     merged_sprints_data.append(current_merged_sprint)
-
 
     # --- 3. Calcul des Statistiques Finales (sur les sprints fusionnés) ---
     for i, merged_sprint in enumerate(merged_sprints_data):
-        segment = merged_sprint['segment_data'].copy() # Utilise les données (potentiellement fusionnées)
+        segment = merged_sprint['segment_data'].copy()
 
-        # Recalculer les statistiques sur le segment potentiellement élargi
         start_time = segment.index[0]
         end_time = segment.index[-1]
-        # Recalculer la durée sur le segment final
-        duration = (end_time - start_time).total_seconds() + segment['delta_time'].iloc[-1]
+        # Recalculer la durée
+        duration = (end_time - start_time).total_seconds() + segment['delta_time'].iloc[-1] if not segment.empty else 0
 
         # Recalculer les autres stats sur ce segment
-        peak_speed_kmh = segment['speed'].max() * 3.6
-        avg_speed_kmh = segment['speed'].mean() * 3.6
-        avg_gradient = segment['pente'].mean() # Pente moyenne du segment total
-        start_distance_km = segment['distance'].iloc[0] / 1000
+        peak_speed_kmh = segment['speed'].max() * 3.6 if not segment.empty else 0
+        avg_speed_kmh = segment['speed'].mean() * 3.6 if not segment.empty else 0
+        avg_gradient = segment['pente'].mean() if not segment.empty else 0
+        start_distance_km = segment['distance'].iloc[0] / 1000 if not segment.empty else 0
 
         # Recalculer delta_distance sur le segment fusionné
         segment['delta_distance'] = segment['distance'].diff().fillna(0)
@@ -111,12 +110,20 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
 
         # Recalculer Accel Max sur le segment fusionné
         if 'delta_speed' not in segment.columns: segment['delta_speed'] = segment['speed'].diff().fillna(0)
+        # Assurer que delta_time existe aussi sur le segment copié
+        if 'delta_time' not in segment.columns:
+            if isinstance(segment.index, pd.DatetimeIndex):
+                segment['delta_time'] = segment.index.to_series().diff().dt.total_seconds().fillna(1.0).clip(lower=0.1)
+            else: # Fallback si l'index n'est pas correct
+                segment['delta_time'] = 1.0
+
         segment['acceleration'] = np.where(segment['delta_time'] == 0, 0, segment['delta_speed'] / segment['delta_time'])
-        max_accel = segment['acceleration'].max()
+        max_accel = segment['acceleration'].max() if not segment.empty else 0
+
 
         sprints_final.append({
-            'Début': start_time, # Garde le Timestamp pour le graphique
-            'Début (km)': f"{start_distance_km:.1f}", # Pour l'affichage tableau
+            'Début': start_time,
+            'Début (km)': f"{start_distance_km:.1f}",
             'Durée (s)': f"{duration:.1f}",
             'Vitesse Max (km/h)': f"{peak_speed_kmh:.1f}",
             'Vitesse Moy (km/h)': f"{avg_speed_kmh:.1f}",
