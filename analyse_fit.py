@@ -83,7 +83,7 @@ def main_app():
         max_gradient_sprint = slope_range_sprint[1]
         max_gap_distance_sprint = st.slider(
             "Distance max. entre sprints à fusionner (m)",
-            min_value=10, max_value=200, value=50, step=10, key="sprint_gap_dist"
+            min_value=10, max_value=500, value=50, step=10, key="sprint_gap_dist"
         )
 
     # --- TRAITEMENT DES DONNÉES ---
@@ -210,4 +210,5 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
