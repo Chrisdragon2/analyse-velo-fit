@@ -32,24 +32,26 @@ def estimate_crr_from_width(width_mm):
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
-    st.set_page_config(layout="wide")
-    st.title("🚴 Analyseur de Sortie FIT")
+    # Configuration de la page (épurée)
+    st.set_page_config(layout="wide", page_title="Analyseur de Sortie FIT")
+    st.title("Analyseur de Sortie FIT")
     
     # --- INPUT UTILISATEUR (Sidebar avec Expanders) ---
     with st.sidebar:
         st.header("1. Charger le Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
 
-        # --- MODIFIÉ : Section 2 (Dépliée par défaut) ---
+        # --- Section 2 (Dépliée par défaut) ---
         with st.expander("2. Paramètres Physiques", expanded=True):
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
             total_weight_kg = cyclist_weight_kg + bike_weight_kg
-            st.markdown(f"_(Poids total calculé : {total_weight_kg:.1f} kg)_")
+            # Utiliser st.caption pour les infos secondaires est plus "épuré"
+            st.caption(f"Poids total calculé : {total_weight_kg:.1f} kg")
 
             tire_width_mm = st.number_input("Largeur des Pneus (mm)", min_value=20, max_value=60, value=28, step=1)
             crr_value = estimate_crr_from_width(tire_width_mm)
-            st.markdown(f"_(Crr estimé : {crr_value:.4f})_")
+            st.caption(f"Crr estimé : {crr_value:.4f}")
 
             wheel_size_options = ["700c (Route/Gravel)", "650b (Gravel/VTT)", "26\" (VTT ancien)", "29\" (VTT moderne)"]
             selected_wheel_size = st.selectbox("Taille des Roues (approximative)", options=wheel_size_options)
@@ -57,7 +59,7 @@ def main_app():
             cda_value = 0.38 # Pour position cocottes
             st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
 
-        # --- MODIFIÉ : Section 3 (Repliée par défaut) ---
+        # --- Section 3 (Repliée par défaut) ---
         with st.expander("3. Paramètres des Montées", expanded=False):
             min_climb_distance = st.slider("Longueur min. montée (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
@@ -69,7 +71,7 @@ def main_app():
                 key="chunk_distance"
             )
 
-        # --- MODIFIÉ : Section 4 (Repliée par défaut) ---
+        # --- Section 4 (Repliée par défaut) ---
         with st.expander("4. Paramètres des Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée minimale du sprint (s)", 3, 15, 5, 1, key="sprint_duration")
@@ -90,46 +92,55 @@ def main_app():
         st.info("Veuillez charger un fichier .fit pour commencer l'analyse.")
         st.stop() # Arrête l'exécution si aucun fichier n'est chargé
 
-    # --- TRAITEMENT DES DONNÉES (Une seule fois) ---
-    df, error_msg = load_and_clean_data(uploaded_file)
-    if df is None: st.error(f"Erreur chargement : {error_msg}"); st.stop()
-
-    df_power_est = estimate_power(df, total_weight_kg, crr_value, cda_value)
-    df = df.join(df_power_est)
-
-    # Analyse Montées
-    analysis_error = None
-    montees_grouped = None; resultats_montées = []; df_analyzed = df
-    try:
-        df_analyzed = calculate_derivatives(df.copy())
-        df_analyzed = identify_and_filter_initial_climbs(df_analyzed, min_pente)
-        montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed, max_gap_climb)
-        resultats_montées = calculate_climb_summary(montees_grouped, min_climb_distance)
-        resultats_df = pd.DataFrame(resultats_montées)
-    except Exception as e:
-        analysis_error = f"Erreur analyse montées : {e}"
-        resultats_df = pd.DataFrame()
-
-    # Détection Sprints
-    sprint_error = None
+    # --- TRAITEMENT DES DONNÉES (avec Spinner) ---
+    df_analyzed = None
+    resultats_df = pd.DataFrame()
     sprints_df_full = pd.DataFrame()
-    try:
-        if 'df_analyzed' not in locals(): df_analyzed = calculate_derivatives(df.copy())
-        sprint_results = detect_sprints(
-            df_analyzed, min_peak_speed_sprint, min_gradient_sprint,
-            max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint
-        )
-        sprints_df_full = pd.DataFrame(sprint_results)
-    except Exception as e:
-        sprint_error = f"Erreur détection sprints : {e}"
-    
+    analysis_error = None
+    sprint_error = None
+    montees_grouped = None
+    resultats_montées = []
+
+    # Un spinner donne un feedback pro pendant les calculs
+    with st.spinner("Analyse du fichier en cours..."):
+        try:
+            df, error_msg = load_and_clean_data(uploaded_file)
+            if df is None: st.error(f"Erreur chargement : {error_msg}"); st.stop()
+
+            df_power_est = estimate_power(df, total_weight_kg, crr_value, cda_value)
+            df = df.join(df_power_est)
+            df_analyzed = calculate_derivatives(df.copy())
+            
+            # Analyse Montées
+            try:
+                df_analyzed = identify_and_filter_initial_climbs(df_analyzed, min_pente)
+                montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed, max_gap_climb)
+                resultats_montées = calculate_climb_summary(montees_grouped, min_climb_distance)
+                resultats_df = pd.DataFrame(resultats_montées)
+            except Exception as e:
+                analysis_error = f"Erreur analyse montées : {e}"
+
+            # Détection Sprints
+            try:
+                sprint_results = detect_sprints(
+                    df_analyzed, min_peak_speed_sprint, min_gradient_sprint,
+                    max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint
+                )
+                sprints_df_full = pd.DataFrame(sprint_results)
+            except Exception as e:
+                sprint_error = f"Erreur détection sprints : {e}"
+        
+        except Exception as e:
+            st.error(f"Une erreur critique est survenue lors du traitement : {e}")
+            st.stop()
+
     # Déterminer alt_col_to_use
     alt_col_to_use = 'altitude'
-    if 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
-         alt_col_to_use = 'altitude_lisse'
+    if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
+            alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS ---
-    tab_summary, tab_climbs, tab_sprints = st.tabs(["📊 Résumé Global", "⛰️ Analyse des Montées", "💨 Analyse des Sprints"])
+    # --- STRUCTURE PAR ONGLETS (sans emojis) ---
+    tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
@@ -142,12 +153,9 @@ def main_app():
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             temps_total_sec = (df.index[-1] - df.index[0]).total_seconds()
             col3.metric("Temps Total", f"{pd.to_timedelta(temps_total_sec, unit='s')}")
-            # Calculer Vitesse Moyenne basée sur temps déplacement (plus précis)
+            
             temps_deplacement_sec = len(df[df['speed'] > 1.0]) # Seuil de 1m/s = 3.6km/h
-            if temps_deplacement_sec > 0:
-                vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6
-            else:
-                vitesse_moy = 0
+            vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
             col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
             
             # (On ajoutera la carte et le profil global ici)
@@ -157,40 +165,40 @@ def main_app():
 
     # --- Onglet 2: Montées ---
     with tab_climbs:
-        st.header("📈 Tableau de Bord des Montées")
+        st.header("Tableau de Bord des Montées")
         if analysis_error: st.error(analysis_error)
         elif resultats_df.empty:
             st.warning(f"Aucune ascension ({min_climb_distance}m+, {min_pente}%+) trouvée.")
         else:
             st.dataframe(resultats_df.drop(columns=['index'], errors='ignore'), use_container_width=True)
 
-        st.header("🗺️ Profils Détaillés des Montées")
+        st.header("Profils Détaillés des Montées")
         if montees_grouped is not None and not resultats_df.empty:
             processed_results_count = 0
             montee_ids = list(montees_grouped.groups.keys())
             valid_climb_data = []
             for nom_bloc in montee_ids:
-                 segment = montees_grouped.get_group(nom_bloc)
-                 if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
-                 distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
-                 if distance_segment >= min_climb_distance:
-                     if processed_results_count < len(resultats_montées):
-                        valid_climb_data.append((processed_results_count, segment))
-                        processed_results_count += 1
-                     else: st.warning(f"Incohérence détectée (montées)."); break
+                    segment = montees_grouped.get_group(nom_bloc)
+                    if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
+                    distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
+                    if distance_segment >= min_climb_distance:
+                        if processed_results_count < len(resultats_montées):
+                            valid_climb_data.append((processed_results_count, segment))
+                            processed_results_count += 1
+                        else: st.warning(f"Incohérence détectée (montées)."); break
+            
             for index_resultat, df_climb_original in valid_climb_data:
                 try:
-                    # On passe la variable 'chunk_distance_m' du slider
                     fig = create_climb_figure(df_climb_original.copy(), alt_col_to_use, chunk_distance_m, resultats_montées, index_resultat)
                     st.plotly_chart(fig, use_container_width=True, key=f"climb_chart_{index_resultat}")
                 except Exception as e:
                     st.error(f"Erreur création graphique ascension {index_resultat+1}."); st.exception(e)
         elif not analysis_error:
-             st.info("Aucun profil de montée à afficher.")
+                st.info("Aucun profil de montée à afficher.")
 
     # --- Onglet 3: Sprints ---
     with tab_sprints:
-        st.header("💨 Tableau Récapitulatif des Sprints")
+        st.header("Tableau Récapitulatif des Sprints")
         if sprint_error: st.error(sprint_error)
         elif sprints_df_full.empty:
             st.warning("Aucun sprint détecté avec ces paramètres.")
@@ -199,7 +207,7 @@ def main_app():
             cols_existantes = [col for col in cols_to_show if col in sprints_df_full.columns]
             st.dataframe(sprints_df_full[cols_existantes], use_container_width=True)
 
-        st.header("⚡ Profils Détaillés des Sprints")
+        st.header("Profils Détaillés des Sprints")
         if not sprints_df_full.empty:
             for index, sprint_info in sprints_df_full.iterrows():
                 try:
@@ -207,17 +215,20 @@ def main_app():
                     if not isinstance(start_timestamp, pd.Timestamp): st.warning(f"Format début incorrect sprint {index+1}."); continue
                     try: duration_float = float(sprint_info['Durée (s)'])
                     except (ValueError, TypeError): st.warning(f"Format durée incorrect sprint {index+1}."); continue
+                    
                     end_timestamp = start_timestamp + pd.Timedelta(seconds=duration_float)
+                    
                     if start_timestamp in df_analyzed.index and end_timestamp <= df_analyzed.index[-1]:
-                         df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
+                        df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
                     elif start_timestamp in df_analyzed.index:
-                         df_sprint_segment = df_analyzed.loc[start_timestamp:]
+                        df_sprint_segment = df_analyzed.loc[start_timestamp:]
                     else: df_sprint_segment = pd.DataFrame()
+
                     if not df_sprint_segment.empty:
-                         fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index)
-                         st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
+                        fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index)
+                        st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else:
-                         st.warning(f"Segment vide pour sprint {index+1}.")
+                        st.warning(f"Segment vide pour sprint {index+1}.")
                 except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(ke)
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error:
