@@ -1,7 +1,7 @@
 [theme]
-# Thème "Dark Pro"
-primaryColor="#1E90FF"
-backgroundColor="#0E1117"
-secondaryBackgroundColor="#1C1E2A"
-textColor="#FAFAFA"
+# Thème "Strava"
+primaryColor="#FC4C02"
+backgroundColor="#FFFFFF"
+secondaryBackgroundColor="#F0F2F6"
+textColor="#262730"
 font="sans serif"
