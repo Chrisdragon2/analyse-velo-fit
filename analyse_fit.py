@@ -184,7 +184,7 @@ def main_app():
         if sprints_df_full.empty and not sprint_error:
             st.warning("Aucun sprint détecté avec ces paramètres.")
         elif not sprints_df_full.empty:
-            cols_to_show = ['Début (km)', 'Durée (s)', 'Vitesse Max (km/h)', 'Vitesse Moy (km/h)',
+            cols_to_show = ['Début (km)', 'Fin (km)', 'Durée (s)', 'Vitesse Max (km/h)', 'Vitesse Moy (km/h)',
                             'Pente Moy (%)', 'Accel Max (m/s²)', 'Distance (m)', 'Puissance Max Est. (W)']
             cols_existantes = [col for col in cols_to_show if col in sprints_df_full.columns]
             st.dataframe(sprints_df_full[cols_existantes], use_container_width=True)
@@ -239,4 +239,5 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
