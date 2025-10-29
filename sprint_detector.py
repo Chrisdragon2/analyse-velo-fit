@@ -84,7 +84,7 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
 
 
                 sprints.append({
-                    'Début': start_time.strftime('%H:%M:%S'),
+                    'Début (km)': f"{start_distance_km:.1f}",
                     'Durée (s)': f"{duration:.1f}",
                     'Vitesse Max (km/h)': f"{peak_speed_kmh:.1f}",
                     'Vitesse Moy (km/h)': f"{avg_speed_kmh:.1f}",
@@ -95,4 +95,5 @@ def detect_sprints(df, min_speed_kmh=40.0, min_gradient=-5.0, max_gradient=5.0, 
                 })
 
     return sprints
+
 
