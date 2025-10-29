@@ -19,63 +19,10 @@ try:
     from sprint_detector import detect_sprints
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
-    st.stop() # Arrête l'exécution si les imports échouent
-
-# --- NOUVELLE FONCTION : Style CSS ---
-def load_custom_css():
-    """Charge du CSS personnalisé pour améliorer le look de l'app."""
-    st.markdown(
-        """
-        <style>
-        /* --- Police Globale --- */
-        html, body, [class*="st-"], .st-emotion-cache-10trblm {
-            font-family: 'Arial', sans-serif;
-        }
-
-        /* --- Titre Principal --- */
-        .st-emotion-cache-10trblm {
-            font-size: 2.5em; /* Taille du titre "Analyseur de Sortie FIT" */
-        }
-
-        /* --- Conteneurs (Onglets, Graphiques) --- */
-        .stTabs, .stDataFrame, .stPlotlyChart {
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            padding: 10px;
-            box-sizing: border-box; /* Assure que le padding est inclus */
-        }
-        
-        /* --- Espacement pour les graphiques Plotly --- */
-        .stPlotlyChart {
-            padding: 15px;
-        }
-
-        /* --- Style des Onglets Actifs --- */
-        .stTabs [data-baseweb="tab"][aria-selected="true"] {
-            background-color: #F0F2F6; /* Couleur de fond de l'onglet actif */
-            border-radius: 5px 5px 0 0;
-            font-weight: bold;
-        }
-
-        /* --- Style de la Sidebar --- */
-        .st-emotion-cache-10oheavq {
-             background-color: #F8F9FA; /* Fond de la sidebar légèrement gris */
-        }
-        
-        /* --- Cacher le footer "Made with Streamlit" --- */
-        footer {
-            visibility: hidden;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-# --- FIN DE LA FONCTION CSS ---
-
+    st.stop()
 
 # --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
-    """Estimation TRES simplifiée du Crr basée sur la largeur du pneu."""
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
     if width_mm > 25:
@@ -85,22 +32,15 @@ def estimate_crr_from_width(width_mm):
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
-    # Configuration de la page et chargement CSS
-    st.set_page_config(
-        layout="wide",
-        page_title="Analyseur FIT Pro", # Titre de l'onglet navigateur
-        page_icon="🚴"                # Icône de l'onglet
-    )
-    load_custom_css() # Appeler la fonction CSS
-    
-    st.title("🚴 Analyseur d'Ascensions et Sprints FIT")
+    st.set_page_config(layout="wide")
+    st.title("🚴 Analyseur de Sortie FIT")
     
     # --- INPUT UTILISATEUR (Sidebar avec Expanders) ---
     with st.sidebar:
         st.header("1. Charger le Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
 
-        # Section 2 : Paramètres Physiques (Dépliée par défaut)
+        # --- MODIFIÉ : Section 2 (Dépliée par défaut) ---
         with st.expander("2. Paramètres Physiques", expanded=True):
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
@@ -117,7 +57,7 @@ def main_app():
             cda_value = 0.38 # Pour position cocottes
             st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
 
-        # Section 3 : Montées (Repliée par défaut)
+        # --- MODIFIÉ : Section 3 (Repliée par défaut) ---
         with st.expander("3. Paramètres des Montées", expanded=False):
             min_climb_distance = st.slider("Longueur min. montée (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
@@ -129,7 +69,7 @@ def main_app():
                 key="chunk_distance"
             )
 
-        # Section 4 : Sprints (Repliée par défaut)
+        # --- MODIFIÉ : Section 4 (Repliée par défaut) ---
         with st.expander("4. Paramètres des Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée minimale du sprint (s)", 3, 15, 5, 1, key="sprint_duration")
@@ -202,12 +142,16 @@ def main_app():
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             temps_total_sec = (df.index[-1] - df.index[0]).total_seconds()
             col3.metric("Temps Total", f"{pd.to_timedelta(temps_total_sec, unit='s')}")
-            temps_deplacement_sec = len(df[df['speed'] > 1.0])
+            # Calculer Vitesse Moyenne basée sur temps déplacement (plus précis)
+            temps_deplacement_sec = len(df[df['speed'] > 1.0]) # Seuil de 1m/s = 3.6km/h
             if temps_deplacement_sec > 0:
                 vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6
             else:
                 vitesse_moy = 0
             col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
+            
+            # (On ajoutera la carte et le profil global ici)
+            
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
 
@@ -236,6 +180,7 @@ def main_app():
                      else: st.warning(f"Incohérence détectée (montées)."); break
             for index_resultat, df_climb_original in valid_climb_data:
                 try:
+                    # On passe la variable 'chunk_distance_m' du slider
                     fig = create_climb_figure(df_climb_original.copy(), alt_col_to_use, chunk_distance_m, resultats_montées, index_resultat)
                     st.plotly_chart(fig, use_container_width=True, key=f"climb_chart_{index_resultat}")
                 except Exception as e:
