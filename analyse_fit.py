@@ -164,7 +164,7 @@ def main_app():
             st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
 
         # Section 3 : Montées (Repliée par défaut)
-        with st.expander("3. Paramètres des Montées", expanded=False):
+        with st.expander("Climb", expanded=False):
             min_climb_distance = st.slider("Longueur min. montée (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
             max_gap_climb = st.slider("Fusion max. gap (m)", 50, 500, 200, 50, key="climb_gap")
@@ -327,3 +327,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
