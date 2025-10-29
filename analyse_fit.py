@@ -78,7 +78,7 @@ def main_app():
         max_gap_distance_sprint = st.slider(
             "Distance max. entre sprints à fusionner (m)", # Nouveau label
             min_value=10,        # Valeur minimale (ex: 10 mètres)
-            max_value=200,       # Valeur maximale (ex: 200 mètres)
+            max_value=500,       # Valeur maximale (ex: 200 mètres)
             value=50,           # Valeur par défaut (ex: 50 mètres)
             step=10,             # Pas d'incrémentation
             key="sprint_gap_dist" # Nouvelle clé unique
@@ -239,3 +239,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
