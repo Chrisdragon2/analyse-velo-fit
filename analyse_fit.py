@@ -22,6 +22,7 @@ except ImportError as e:
     st.stop() # Arrête l'exécution si les imports échouent
 
 # --- NOUVELLE FONCTION : Style CSS ---
+# --- NOUVELLE FONCTION : Style CSS (Corrigée) ---
 def load_custom_css():
     """Charge du CSS personnalisé pour un look moderne et épuré."""
     st.markdown(
@@ -29,57 +30,35 @@ def load_custom_css():
         <style>
         
         /* --- 1. Global & Typographie --- */
-        body {
-            background-color: #F0F2F6; /* Fond de page gris très clair */
-        }
-        /* Utilise la police système moderne */
+        body { background-color: #F0F2F6; }
         html, body, [class*="st-"], .st-emotion-cache-10trblm {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
         /* --- 2. Titre Principal --- */
         h1 {
-            color: #111;
-            font-weight: 600;
-            font-size: 2.2em;
-            border-bottom: none; /* Enlève la bordure précédente */
-            padding-bottom: 0;
+            color: #111; font-weight: 600; font-size: 2.2em;
+            border-bottom: none; padding-bottom: 0;
         }
         
         /* --- 3. Barre Latérale (Sidebar) --- */
         [data-testid="stSidebar"] {
-            background-color: #FFFFFF; /* Sidebar blanche */
-            border-right: 1px solid #E0E0E0; /* Bordure subtile */
+            background-color: #FFFFFF;
+            border-right: 1px solid #E0E0E0;
         }
         [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-             color: #333; /* Titres de sidebar plus sombres */
+             color: #333;
         }
 
         /* --- 4. Contenu Principal (Look "Carte") --- */
-        /* Cible les onglets, les tableaux, les graphiques et les métriques */
         [data-testid="stTabs"], [data-testid="stDataFrame"], [data-testid="stPlotlyChart"], [data-testid="stMetric"] {
-            background-color: #FFFFFF; /* Fond blanc */
-            border: 1px solid #E0E0E0; /* Bordure très claire */
-            border-radius: 8px; /* Coins arrondis */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.02); /* Ombre très subtile */
+            background-color: #FFFFFF;
+            border: 1px solid #E0E0E0;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02);
             padding: 16px;
             box-sizing: border-box;
-            margin-bottom: 16px; /* Espace entre les éléments */
-        }
-        
-        /* --- Correction alignement st.metric --- */
-        .st-emotion-cache-1xarl3l { /* Cible le conteneur de la colonne */
-            display: flex;
-            flex-direction: column;
-            height: 100%; /* Force la colonne à prendre toute la hauteur */
-        }
-        .st-emotion-cache-zrxg2o { /* Cible le conteneur st.metric */
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1; /* Force la métrique à s'étendre */
-        }
-        .st-emotion-cache-1m3sd3i { /* Cible la zone de contenu (valeur + label) */
-            flex-grow: 1; /* Pousse le contenu vers le haut */
+            margin-bottom: 16px;
         }
 
         /* --- 5. Onglets (Tabs) --- */
@@ -95,7 +74,7 @@ def load_custom_css():
         }
         [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
             background-color: transparent;
-            border-bottom: 3px solid #0068C9; /* (Bleu Streamlit) */
+            border-bottom: 3px solid #0068C9;
             color: #0068C9;
             font-weight: 600;
         }
@@ -112,12 +91,30 @@ def load_custom_css():
 
         /* --- 7. Cacher le footer "Made with Streamlit" --- */
         footer { visibility: hidden; }
+
+        /* --- 8. CORRECTION : Correction alignement st.metric (Scopé) --- */
+        /* On ajoute [data-testid="stAppViewContainer"] pour ne cibler QUE le contenu principal */
+        
+        [data-testid="stAppViewContainer"] .st-emotion-cache-1xarl3l {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        [data-testid="stAppViewContainer"] .st-emotion-cache-zrxg2o {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        [data-testid="stAppViewContainer"] .st-emotion-cache-1m3sd3i {
+            flex-grow: 1;
+        }
+        /* --- FIN CORRECTION --- */
+        
         </style>
         """,
         unsafe_allow_html=True
     )
 # --- FIN DE LA FONCTION CSS ---
-
 
 # --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
@@ -327,4 +324,5 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
