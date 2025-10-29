@@ -75,7 +75,14 @@ def main_app():
         min_gradient_sprint = slope_range_sprint[0]
         max_gradient_sprint = slope_range_sprint[1]
         # --- NOUVEAU CURSEUR POUR FUSION SPRINT ---
-        max_gap_sec_sprint = st.slider("Temps max. entre sprints à fusionner (s)", 3, 30, 10, 1, key="sprint_gap")
+        max_gap_sec_sprint = st.slider(
+            "Temps max. entre sprints à fusionner (s)", # Label
+            min_value=0,        # Valeur minimale (ex: 0 seconde)
+            max_value=45,       # Valeur maximale (ex: 45 secondes)
+            value=15,           # Valeur par défaut (ex: 15 secondes)
+            step=1,             # Pas d'incrémentation
+            key="sprint_gap"    # Identifiant unique
+        )
         # --- FIN NOUVEAU CURSEUR ---
 
     # --- TRAITEMENT DES DONNÉES ---
@@ -219,3 +226,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
