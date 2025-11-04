@@ -115,7 +115,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
         title=dict(text=titre, x=0.5),
         height=500, width=800,
         template="plotly_white", # Thème épuré
-        font=dict(family="Arial, sans-serif", size=12, color="green"), # Police
+        font=dict(family="Arial, sans-serif", size=12, color="#333333"), # Police
         xaxis_title='Distance (m)',
         yaxis_title='Altitude (m)',
         hovermode='closest',
@@ -249,4 +249,3 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="co
     # --- FIN MODIFICATION ---
     
     return fig
-
