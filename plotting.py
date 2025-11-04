@@ -97,7 +97,7 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
             max_alt_climb = df_climb[alt_col_to_use].max() if not df_climb.empty else start_altitude_abs
             if pd.notna(mean_alt_chunk):
                 mid_y_altitude = mean_alt_chunk + (max_alt_climb - start_altitude_abs) * 0.05
-                fig.add_annotation(x=row['mid_dist'], y=mid_y_altitude, text=f"<b>{row['pente_chunk']:.1f}%</b>", showarrow=False, font=dict(size=10, color="black", family="Arial Black"), yshift=8)
+                fig.add_annotation(x=row['mid_dist'], y=mid_y_altitude, text=f"<b>{row['pente_chunk']:.1f}%</b>", showarrow=False, font=dict(size=10, color="white", family="Arial Black"), yshift=8)
     
     # Mise en forme
     if index < len(resultats_montées): climb_info = pd.DataFrame(resultats_montées).iloc[index]
@@ -249,3 +249,4 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="co
     # --- FIN MODIFICATION ---
     
     return fig
+
