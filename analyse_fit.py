@@ -21,6 +21,43 @@ except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
+# --- NOUVELLE FONCTION : Style CSS ---
+def load_custom_css():
+    """Charge du CSS personnalisé pour un look moderne et épuré."""
+    st.markdown(
+        """
+        <style>
+        /* (Colle ici le CSS complet de la version "Finale Robuste") */
+        body { background-color: #F0F2F6; }
+        html, body, [class*="st-"], .st-emotion-cache-10trblm {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        h1 { color: #111; font-weight: 600; font-size: 2.2em; border-bottom: none; padding-bottom: 0; }
+        [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px solid #E0E0E0; }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #333; }
+        [data-testid="stTabs"], [data-testid="stDataFrame"], [data-testid="stPlotlyChart"], .metric-container .metric-box {
+            background-color: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02); padding: 16px;
+            box-sizing: border-box; margin-bottom: 16px;
+        }
+        [data-testid="stTabs"] { padding: 0; }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] { padding: 0 16px; border-bottom: 1px solid #E0E0E0; }
+        [data-testid="stTabs"] [data-baseweb="tab"] { background-color: transparent; color: #555; font-weight: 500; }
+        [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+            background-color: transparent; border-bottom: 3px solid #0068C9;
+            color: #0068C9; font-weight: 600;
+        }
+        [data-testid="stTabContent"] { padding: 16px; }
+        h2 { color: #333; font-weight: 600; border-bottom: 1px solid #EEE; padding-bottom: 8px; margin-top: 16px; }
+        footer { visibility: hidden; }
+        .metric-container { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+        .metric-label { font-size: 0.9em; color: #555; }
+        .metric-value { font-size: 1.5em; font-weight: 600; color: #111; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 # --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
@@ -32,63 +69,56 @@ def estimate_crr_from_width(width_mm):
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
-    # Configuration de la page (simple)
-    st.set_page_config(
-        layout="wide",
-        page_title="Analyseur FIT"
-    )
-    
+    st.set_page_config(layout="wide", page_title="Analyseur FIT", page_icon="🚴")
+    load_custom_css()
     st.title("Analyseur d'Ascensions et Sprints")
-    
-    # --- INPUT UTILISATEUR (Sidebar avec Expanders et titres courts) ---
-    with st.sidebar:
-        st.header("1. Fichier")
-        uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
 
-        with st.expander("2. Physique", expanded=True):
+    # --- NOUVEAU : Initialisation de l'état de session pour le mode d'affichage ---
+    if 'sprint_display_mode' not in st.session_state:
+        st.session_state.sprint_display_mode = "courbes" # Mode par défaut (Courbe/Courbe)
+
+    # Fonction pour basculer le mode
+    def toggle_sprint_display_mode():
+        if st.session_state.sprint_display_mode == "courbes":
+            st.session_state.sprint_display_mode = "barres" # Mode Barres/Courbe
+        else:
+            st.session_state.sprint_display_mode = "courbes"
+    # --- FIN NOUVEAU ---
+
+    
+    # --- INPUT UTILISATEUR (Sidebar) ---
+    with st.sidebar:
+        st.header("1. Charger le Fichier")
+        uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
+        with st.expander("2. Paramètres Physiques", expanded=True):
+            # ... (code des inputs physiques inchangé) ...
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
             total_weight_kg = cyclist_weight_kg + bike_weight_kg
             st.markdown(f"_(Poids total calculé : {total_weight_kg:.1f} kg)_")
-
-            tire_width_mm = st.number_input("Largeur des Pneus (mm)", min_value=20, max_value=60, value=28, step=1)
+            tire_width_mm = st.number_input("Largeur des Pneus (mm)", 20, 60, 28, 1)
             crr_value = estimate_crr_from_width(tire_width_mm)
             st.markdown(f"_(Crr estimé : {crr_value:.4f})_")
-
             wheel_size_options = ["700c (Route/Gravel)", "650b (Gravel/VTT)", "26\" (VTT ancien)", "29\" (VTT moderne)"]
             selected_wheel_size = st.selectbox("Taille des Roues", options=wheel_size_options)
+            cda_value = 0.38; st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
 
-            cda_value = 0.38 # Pour position cocottes
-            st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
-
-        with st.expander("3. Montées", expanded=False):
+        with st.expander("3. Paramètres des Montées", expanded=False):
+            # ... (code des sliders montées inchangé) ...
             min_climb_distance = st.slider("Longueur min. (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
             max_gap_climb = st.slider("Fusion gap (m)", 50, 500, 200, 50, key="climb_gap")
             chunk_distance_m = st.select_slider("Fenêtre Analyse Pente (m)", options=[100, 200, 500, 1000, 1500, 2000], value=100, key="chunk_distance")
 
-        with st.expander("4. Sprints", expanded=False):
+        with st.expander("4. Paramètres des Sprints", expanded=False):
+            # ... (code des sliders sprints inchangé) ...
             min_peak_speed_sprint = st.slider("Vitesse min. (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée min. (s)", 3, 15, 5, 1, key="sprint_duration")
             slope_range_sprint = st.slider("Plage Pente (%)", -10.0, 10.0, (-5.0, 5.0), 0.5, key="sprint_slope_range")
             min_gradient_sprint, max_gradient_sprint = slope_range_sprint
             max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist")
-            sprint_rewind_sec = st.slider(
-                "Secondes 'Montée en Puissance'", 0, 20, 10, 1, 
-                key="sprint_rewind",
-                help="Combien de secondes avant le sprint officiel (haute vitesse) inclure pour trouver le V-min."
-            )
+            sprint_rewind_sec = st.slider("Secondes 'Montée en Puissance'", 0, 20, 10, 1, key="sprint_rewind")
     # --- FIN SIDEBAR ---
-
-    # --- Initialisation de l'état de session (pour le bouton sprint) ---
-    if 'sprint_display_mode' not in st.session_state:
-        st.session_state.sprint_display_mode = "courbes" # Défaut: Courbes
-
-    def toggle_sprint_display_mode():
-        if st.session_state.sprint_display_mode == "courbes":
-            st.session_state.sprint_display_mode = "barres"
-        else:
-            st.session_state.sprint_display_mode = "courbes"
 
     # --- AFFICHAGE PRINCIPAL ---
     if uploaded_file is None:
@@ -96,53 +126,47 @@ def main_app():
         st.stop()
 
     # --- TRAITEMENT DES DONNÉES ---
-    with st.spinner("Analyse du fichier en cours..."):
-        df_analyzed = None; resultats_df = pd.DataFrame(); sprints_df_full = pd.DataFrame()
-        analysis_error = None; sprint_error = None; montees_grouped = None; resultats_montées = []
-        
-        try:
-            df, error_msg = load_and_clean_data(uploaded_file)
-            if df is None: st.error(f"Erreur chargement : {error_msg}"); st.stop()
-            
-            df_power_est = estimate_power(df, total_weight_kg, crr_value, cda_value)
-            df = df.join(df_power_est)
-            df_analyzed = calculate_derivatives(df.copy())
-            
-            try:
-                df_analyzed_climbs = identify_and_filter_initial_climbs(df_analyzed, min_pente)
-                montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed_climbs, max_gap_climb)
-                resultats_montées = calculate_climb_summary(montees_grouped, min_climb_distance)
-                resultats_df = pd.DataFrame(resultats_montées)
-            except Exception as e:
-                analysis_error = f"Erreur analyse montées : {e}"
+    df, error_msg = load_and_clean_data(uploaded_file)
+    if df is None: st.error(f"Erreur chargement : {error_msg}"); st.stop()
+    df_power_est = estimate_power(df, total_weight_kg, crr_value, cda_value)
+    df = df.join(df_power_est)
 
-            try:
-                sprint_results = detect_sprints(
-                    df_analyzed, min_peak_speed_sprint, min_gradient_sprint,
-                    max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint,
-                    sprint_rewind_sec
-                )
-                sprints_df_full = pd.DataFrame(sprint_results)
-            except Exception as e:
-                sprint_error = f"Erreur détection sprints : {e}"
-        
-        except Exception as e:
-            st.error(f"Une erreur critique est survenue lors du traitement : {e}")
-            st.stop()
+    analysis_error = None
+    montees_grouped = None; resultats_montées = []; df_analyzed = df
+    try:
+        df_analyzed = calculate_derivatives(df.copy())
+        df_analyzed = identify_and_filter_initial_climbs(df_analyzed, min_pente)
+        montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed, max_gap_climb)
+        resultats_montées = calculate_climb_summary(montees_grouped, min_climb_distance)
+        resultats_df = pd.DataFrame(resultats_montées)
+    except Exception as e:
+        analysis_error = f"Erreur analyse montées : {e}"; resultats_df = pd.DataFrame()
 
+    sprint_error = None
+    sprints_df_full = pd.DataFrame()
+    try:
+        if 'df_analyzed' not in locals(): df_analyzed = calculate_derivatives(df.copy())
+        sprint_results = detect_sprints(
+            df_analyzed, min_peak_speed_sprint, min_gradient_sprint,
+            max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint,
+            sprint_rewind_sec
+        )
+        sprints_df_full = pd.DataFrame(sprint_results)
+    except Exception as e:
+        sprint_error = f"Erreur détection sprints : {e}"
+    
     alt_col_to_use = 'altitude'
-    if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
-            alt_col_to_use = 'altitude_lisse'
+    if 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
+         alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS (avec icônes épurées) ---
-    tab_summary, tab_climbs, tab_sprints = st.tabs(["📊", "⛰️", "💨"]) # Utilise des icônes
+    # --- STRUCTURE PAR ONGLETS ---
+    tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         try:
             st.subheader("Statistiques Clés")
-            # --- Retour à st.metric standard ---
             dist_totale = df['distance'].iloc[-1] / 1000
             d_plus = df['altitude'].diff().clip(lower=0).sum()
             temps_total_sec = (df.index[-1] - df.index[0]).total_seconds()
@@ -150,13 +174,14 @@ def main_app():
             temps_deplacement_sec = len(df[df['speed'] > 1.0])
             vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
             
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Distance Totale", f"{dist_totale:.2f} km")
-            col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
-            col3.metric("Temps Total", f"{temps_total_str}")
-            col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
-            # --- Fin st.metric ---
-            
+            st.markdown(f"""
+            <div class="metric-container">
+                <div class="metric-box"><div class="metric-label">Distance Totale</div><div class="metric-value">{dist_totale:.2f} km</div></div>
+                <div class="metric-box"><div class="metric-label">Dénivelé Positif</div><div class="metric-value">{d_plus:.0f} m</div></div>
+                <div class="metric-box"><div class="metric-label">Temps Total</div><div class="metric-value">{temps_total_str}</div></div>
+                <div class="metric-box"><div class="metric-label">Vitesse Moyenne</div><div class="metric-value">{vitesse_moy:.2f} km/h</div></div>
+            </div>
+            """, unsafe_allow_html=True)
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
 
@@ -183,7 +208,6 @@ def main_app():
                         valid_climb_data.append((processed_results_count, segment))
                         processed_results_count += 1
                      else: st.warning(f"Incohérence détectée (montées)."); break
-            
             for index_resultat, df_climb_original in valid_climb_data:
                 try:
                     fig = create_climb_figure(df_climb_original.copy(), alt_col_to_use, chunk_distance_m, resultats_montées, index_resultat)
@@ -191,7 +215,7 @@ def main_app():
                 except Exception as e:
                     st.error(f"Erreur création graphique ascension {index_resultat+1}."); st.exception(e)
         elif not analysis_error:
-                st.info("Aucun profil de montée à afficher.")
+             st.info("Aucun profil de montée à afficher.")
 
     # --- Onglet 3: Sprints ---
     with tab_sprints:
@@ -206,13 +230,14 @@ def main_app():
 
         st.header("Profils Détaillés des Sprints")
         
-        # Bouton de bascule
+        # --- AJOUT DU BOUTON DE BASCULE ---
         current_mode_label = {
             "courbes": "Vue actuelle : Courbes (Vitesse + Puissance)",
             "barres": "Vue actuelle : Barres (Puissance) + Courbe (Vitesse)"
         }
         st.caption(current_mode_label[st.session_state.sprint_display_mode])
         st.button("Inverser Barres / Courbe", on_click=toggle_sprint_display_mode, key="toggle_sprint_view")
+        # --- FIN AJOUT BOUTON ---
         
         if not sprints_df_full.empty:
             for index, sprint_info in sprints_df_full.iterrows():
@@ -231,11 +256,17 @@ def main_app():
                     else: df_sprint_segment = pd.DataFrame()
 
                     if not df_sprint_segment.empty:
-                         fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
+                         # --- MODIFIÉ : Passe le display_mode au graphique ---
+                         fig_sprint = create_sprint_figure(
+                             df_sprint_segment.copy(), 
+                             sprint_info, 
+                             index, 
+                             st.session_state.sprint_display_mode # Passe l'état actuel
+                         )
                          st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else:
                          st.warning(f"Segment vide pour sprint {index+1}.")
-                except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(e)
+                except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(ke)
                 except Exception as e:
                     st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error:
