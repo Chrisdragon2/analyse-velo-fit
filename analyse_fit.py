@@ -35,13 +35,23 @@ def main_app():
     # Configuration de la page (épurée)
     st.set_page_config(layout="wide", page_title="Analyseur de Sortie FIT")
     st.title("Analyseur de Sortie FIT")
-    
+
+    # --- Initialisation de l'état de session pour le mode d'affichage ---
+    if 'sprint_display_mode' not in st.session_state:
+        st.session_state.sprint_display_mode = "puissance_barre_vitesse_courbe" # Mode par défaut
+
+    # Fonction pour basculer le mode
+    def toggle_sprint_display_mode():
+        if st.session_state.sprint_display_mode == "puissance_barre_vitesse_courbe":
+            st.session_state.sprint_display_mode = "vitesse_barre_puissance_courbe"
+        else:
+            st.session_state.sprint_display_mode = "puissance_barre_vitesse_courbe"
+
     # --- INPUT UTILISATEUR (Sidebar avec Expanders) ---
     with st.sidebar:
         st.header("1. Charger le Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
 
-        # --- Section 2 (Dépliée par défaut) ---
         with st.expander("2. Paramètres Physiques", expanded=True):
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
@@ -58,7 +68,6 @@ def main_app():
             cda_value = 0.38 # Pour position cocottes
             st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
 
-        # --- Section 3 (Repliée par défaut) ---
         with st.expander("3. Paramètres des Montées", expanded=False):
             min_climb_distance = st.slider("Longueur min. montée (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
@@ -70,7 +79,6 @@ def main_app():
                 key="chunk_distance"
             )
 
-        # --- MODIFIÉ : Section 4 (Repliée par défaut) ---
         with st.expander("4. Paramètres des Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée minimale du sprint (s)", 3, 15, 5, 1, key="sprint_duration")
@@ -84,19 +92,17 @@ def main_app():
                 "Distance max. entre sprints à fusionner (m)",
                 min_value=10, max_value=200, value=50, step=10, key="sprint_gap_dist"
             )
-            # --- AJOUT DU CURSEUR "REMBOBINAGE" ---
             sprint_rewind_sec = st.slider(
                 "Secondes 'Montée en Puissance'", 0, 20, 10, 1, 
                 key="sprint_rewind",
                 help="Combien de secondes avant le sprint officiel (haute vitesse) inclure pour trouver le V-min."
             )
-            # --- FIN AJOUT ---
     # --- FIN SIDEBAR ---
 
     # --- AFFICHAGE PRINCIPAL ---
     if uploaded_file is None:
         st.info("Veuillez charger un fichier .fit pour commencer l'analyse.")
-        st.stop() # Arrête l'exécution si aucun fichier n'est chargé
+        st.stop()
 
     # --- TRAITEMENT DES DONNÉES (avec Spinner) ---
     df_analyzed = None
@@ -107,7 +113,6 @@ def main_app():
     montees_grouped = None
     resultats_montées = []
 
-    # Un spinner donne un feedback pro pendant les calculs
     with st.spinner("Analyse du fichier en cours..."):
         try:
             df, error_msg = load_and_clean_data(uploaded_file)
@@ -117,7 +122,6 @@ def main_app():
             df = df.join(df_power_est)
             df_analyzed = calculate_derivatives(df.copy())
             
-            # Analyse Montées
             try:
                 df_analyzed_climbs = identify_and_filter_initial_climbs(df_analyzed, min_pente)
                 montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed_climbs, max_gap_climb)
@@ -126,15 +130,12 @@ def main_app():
             except Exception as e:
                 analysis_error = f"Erreur analyse montées : {e}"
 
-            # Détection Sprints
             try:
-                # --- MODIFIÉ : Ajout de sprint_rewind_sec ---
                 sprint_results = detect_sprints(
                     df_analyzed, min_peak_speed_sprint, min_gradient_sprint,
                     max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint,
-                    sprint_rewind_sec # Argument ajouté
+                    sprint_rewind_sec
                 )
-                # --- FIN MODIFICATION ---
                 sprints_df_full = pd.DataFrame(sprint_results)
             except Exception as e:
                 sprint_error = f"Erreur détection sprints : {e}"
@@ -143,15 +144,12 @@ def main_app():
             st.error(f"Une erreur critique est survenue lors du traitement : {e}")
             st.stop()
 
-    # Déterminer alt_col_to_use
     alt_col_to_use = 'altitude'
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS (sans emojis) ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
-    # --- Onglet 1: Résumé ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         try:
@@ -163,14 +161,13 @@ def main_app():
             temps_total_sec = (df.index[-1] - df.index[0]).total_seconds()
             col3.metric("Temps Total", f"{pd.to_timedelta(temps_total_sec, unit='s')}")
             
-            temps_deplacement_sec = len(df[df['speed'] > 1.0]) # Seuil de 1m/s = 3.6km/h
+            temps_deplacement_sec = len(df[df['speed'] > 1.0])
             vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
             col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
             
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
 
-    # --- Onglet 2: Montées ---
     with tab_climbs:
         st.header("Tableau de Bord des Montées")
         if analysis_error: st.error(analysis_error)
@@ -203,7 +200,7 @@ def main_app():
         elif not analysis_error:
                 st.info("Aucun profil de montée à afficher.")
 
-    # --- Onglet 3: Sprints ---
+    # --- MODIFIÉ : Onglet 3 Sprints (avec bouton de bascule) ---
     with tab_sprints:
         st.header("Tableau Récapitulatif des Sprints")
         if sprint_error: st.error(sprint_error)
@@ -215,10 +212,20 @@ def main_app():
             st.dataframe(sprints_df_full[cols_existantes], use_container_width=True)
 
         st.header("Profils Détaillés des Sprints")
+        
+        # --- AJOUT DU BOUTON DE BASCULE ---
+        current_mode_label = {
+            "puissance_barre_vitesse_courbe": "Mode actuel : Barres = Puissance, Courbe = Vitesse",
+            "vitesse_barre_puissance_courbe": "Mode actuel : Barres = Vitesse, Courbe = Puissance"
+        }
+        st.write(current_mode_label[st.session_state.sprint_display_mode])
+        st.button("Inverser Barres / Courbe", on_click=toggle_sprint_display_mode)
+        # --- FIN AJOUT BOUTON ---
+
         if not sprints_df_full.empty:
             for index, sprint_info in sprints_df_full.iterrows():
                 try:
-                    start_timestamp = sprint_info['Début'] # C'est maintenant le début V-min
+                    start_timestamp = sprint_info['Début']
                     if not isinstance(start_timestamp, pd.Timestamp): st.warning(f"Format début incorrect sprint {index+1}."); continue
                     try: duration_float = float(sprint_info['Durée (s)'])
                     except (ValueError, TypeError): st.warning(f"Format durée incorrect sprint {index+1}."); continue
@@ -232,8 +239,8 @@ def main_app():
                     else: df_sprint_segment = pd.DataFrame()
 
                     if not df_sprint_segment.empty:
-                         # L'appel est maintenant plus simple, sans les temps de surbrillance
-                         fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index)
+                         # --- MODIFIÉ : Passe le display_mode au graphique ---
+                         fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
                          st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else:
                          st.warning(f"Segment vide pour sprint {index+1}.")
