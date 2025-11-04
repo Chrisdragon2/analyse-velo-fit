@@ -117,22 +117,15 @@ def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, result
     return fig
 
 
-# --- MODIFIÉ : create_sprint_figure avec display_mode ---
+# --- MODIFIÉ : create_sprint_figure (accepte 4 arguments) ---
 def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="puissance_barre_vitesse_courbe"):
     """
     Crée un graphique de profil pour un segment de sprint, avec un mode d'affichage sélectionnable.
-    
-    Args:
-        df_sprint_segment (pd.DataFrame): Données du segment de sprint.
-        sprint_info (dict): Informations récapitulatives du sprint.
-        index (int): Index du sprint.
-        display_mode (str): 'puissance_barre_vitesse_courbe' ou 'vitesse_barre_puissance_courbe'.
     """
     fig = go.Figure()
     df_sprint_segment = df_sprint_segment.copy()
 
-    # Nettoyage colonnes (identique à avant)
-    cols_to_convert = ['speed', 'delta_time']
+    # Nettoyage colonnes
     for col in ['speed', 'estimated_power', 'delta_time']:
         if col in df_sprint_segment.columns:
             df_sprint_segment.loc[:, col] = pd.to_numeric(df_sprint_segment[col], errors='coerce')
@@ -154,18 +147,9 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="pu
     df_sprint_segment.loc[:, 'speed_kmh'] = df_sprint_segment['speed'] * 3.6
     if 'estimated_power' in df_sprint_segment.columns: df_sprint_segment['estimated_power'] = df_sprint_segment['estimated_power'].fillna(0)
 
-    # --- NOUVEAU : Définition des données et titres selon le mode ---
+    # Définition des données et titres selon le mode
     if display_mode == "puissance_barre_vitesse_courbe":
-        # Barres : Puissance Moyenne par seconde
-        # On calcule une puissance moyenne par intervalle de temps si delta_time est variable
-        # Sinon, on utilise la puissance estimée directement pour les barres
-        
-        # Pour des barres qui représentent un "delta" (comme la puissance sur un intervalle),
-        # il est plus logique d'utiliser un bar chart plutôt que des points.
-        # Ici, on va simplifier en prenant la puissance estimée par point comme hauteur de barre.
-        # Idéalement, il faudrait agréger la puissance sur des petits intervalles si les données sont très denses.
-        
-        bar_data = df_sprint_segment['estimated_power']
+        bar_data = df_sprint_segment['estimated_power'] if 'estimated_power' in df_sprint_segment.columns else pd.Series()
         bar_name = 'Puissance Est. (W)'
         bar_color = 'red'
         bar_yaxis = 'y2'
@@ -179,6 +163,8 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="pu
         
         yaxis1_title = 'Vitesse (km/h)'
         yaxis2_title = 'Puissance Est. (W)'
+        yaxis1_color = 'blue'
+        yaxis2_color = 'red'
         
     elif display_mode == "vitesse_barre_puissance_courbe":
         bar_data = df_sprint_segment['speed_kmh']
@@ -187,7 +173,7 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="pu
         bar_yaxis = 'y1'
         bar_hovertemplate = '<b>Temps:</b> %{x:.1f} s<br><b>Vitesse:</b> %{y:.1f} km/h<extra></extra>'
         
-        line_data = df_sprint_segment['estimated_power']
+        line_data = df_sprint_segment['estimated_power'] if 'estimated_power' in df_sprint_segment.columns else pd.Series()
         line_name = 'Puissance Est. (W)'
         line_color = 'red'
         line_yaxis = 'y2'
@@ -195,36 +181,30 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="pu
         
         yaxis1_title = 'Vitesse (km/h)'
         yaxis2_title = 'Puissance Est. (W)'
+        yaxis1_color = 'blue'
+        yaxis2_color = 'red'
     else:
         st.error("Mode d'affichage inconnu pour les sprints.")
         return go.Figure()
 
-    # --- FIN NOUVEAU ---
-
     # Trace pour les Barres
-    if not bar_data.isnull().all(): # S'assurer qu'il y a des données à tracer
+    if not bar_data.empty and not bar_data.isnull().all():
         fig.add_trace(go.Bar(
             x=df_sprint_segment['time_relative_sec'], y=bar_data,
             name=bar_name, marker_color=bar_color, yaxis=bar_yaxis,
-            hovertemplate=bar_hovertemplate, opacity=0.7 # Opacité pour voir la courbe derrière
+            hovertemplate=bar_hovertemplate, opacity=0.7
         ))
-    else:
-        st.warning(f"Pas de données pour les barres ({bar_name}).")
-
 
     # Trace pour la Ligne
-    if not line_data.isnull().all():
+    if not line_data.empty and not line_data.isnull().all():
         fig.add_trace(go.Scatter(
             x=df_sprint_segment['time_relative_sec'], y=line_data,
-            mode='lines', name=line_name, line=dict(color=line_color, width=2, dash='dot'), yaxis=line_yaxis,
+            mode='lines', name=line_name, line=dict(color=line_color, width=2.5), yaxis=line_yaxis, # Ligne plus épaisse
             hovertemplate=line_hovertemplate
         ))
-    else:
-        st.warning(f"Pas de données pour la courbe ({line_name}).")
-
 
     # Configuration des axes et du titre
-    title_text = f"Profil du Sprint n°{index + 1} (Effort Complet)<br>" \
+    title_text = f"Profil du Sprint n°{index + 1}<br>" \
                  f"Vmax: {sprint_info.get('Vitesse Max (km/h)', 'N/A')} km/h | " \
                  f"Pmax Est: {sprint_info.get('Puissance Max Est. (W)', 'N/A')} W | " \
                  f"Durée: {sprint_info.get('Durée (s)', 'N/A')} s"
@@ -232,22 +212,25 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="pu
     fig.update_layout(
         title=dict(text=title_text, x=0.5), height=400, width=800, plot_bgcolor='white',
         xaxis_title='Temps Relatif (s)', xaxis=dict(gridcolor='#EAEAEA'),
-        yaxis=dict(title=yaxis1_title, color='blue', gridcolor='#EAEAEA', side='left', 
-                   range=[0, max(line_data.max()*1.1 + 5 if not line_data.empty else 0, bar_data.max()*1.1 + 5 if not bar_data.empty else 0)]), # Ajuste le range pour la 1ère Y-axis
-        yaxis2=dict(title=yaxis2_title, color='red', overlaying='y', side='right',
-                    gridcolor='#EAEAEA', showgrid=False,
-                    range=[0, max(line_data.max()*1.1 + 50 if not line_data.empty else 0, bar_data.max()*1.1 + 50 if not bar_data.empty else 0)]), # Ajuste le range pour la 2ème Y-axis
+        yaxis=dict(
+            title=yaxis1_title, color=yaxis1_color, gridcolor='#EAEAEA', side='left',
+            # Plage dynamique basée sur les données de l'axe y1
+            range=[0, bar_data.max()*1.1 + 5 if bar_yaxis == 'y1' and not bar_data.empty else (line_data.max()*1.1 + 5 if not line_data.empty else 10)]
+        ),
+        yaxis2=dict(
+            title=yaxis2_title, color=yaxis2_color, overlaying='y', side='right',
+            gridcolor='#EAEAEA', showgrid=False,
+            # Plage dynamique basée sur les données de l'axe y2
+            range=[0, bar_data.max()*1.1 + 50 if bar_yaxis == 'y2' and not bar_data.empty else (line_data.max()*1.1 + 50 if not line_data.empty else 100)]
+        ),
         hovermode='x unified', legend=dict(x=0.01, y=0.99, bgcolor='rgba(255,255,255,0.8)'),
         margin=dict(l=50, r=50, t=80, b=50), dragmode='pan', yaxis_fixedrange=False, xaxis_fixedrange=False,
         modebar=dict(orientation='v', activecolor='blue'),
+        barmode='overlay' # Assure que les barres et la ligne se superposent
     )
     
-    # Correction : S'assurer que les y-axis sont définies même si une trace est manquante
-    if display_mode == "puissance_barre_vitesse_courbe":
-        if 'estimated_power' not in df_sprint_segment.columns or df_sprint_segment['estimated_power'].isnull().all():
-             fig.update_layout(yaxis2=dict(visible=False))
-    elif display_mode == "vitesse_barre_puissance_courbe":
-        if 'estimated_power' not in df_sprint_segment.columns or df_sprint_segment['estimated_power'].isnull().all():
-             fig.update_layout(yaxis2=dict(visible=False)) # Si puissance est en courbe et absente
+    # Gérer le cas où la puissance (et donc yaxis2) n'existe pas
+    if 'estimated_power' not in df_sprint_segment.columns or df_sprint_segment['estimated_power'].isnull().all():
+        fig.update_layout(yaxis2=dict(visible=False))
 
     return fig
