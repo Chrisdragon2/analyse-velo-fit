@@ -239,7 +239,7 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="co
         yaxis=yaxis_vitesse_config,
         yaxis2=yaxis_puissance_config,
         hovermode='x unified', 
-        legend=dict(x=0.84, y=1.2, bgcolor='rgba(0,0,0,0)', bordercolor="#E0E0E0", borderwidth=1), # Légende plus propre
+        legend=dict(x=0.01, y=1.5, bgcolor='rgba(0,0,0,0)', bordercolor="#E0E0E0", borderwidth=1), # Légende plus propre
         margin=dict(l=50, r=50, t=140, b=50), 
         dragmode='pan', yaxis_fixedrange=False, xaxis_fixedrange=False,
         modebar=dict(orientation='v', activecolor='#0068C9'),
@@ -249,6 +249,7 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="co
     # --- FIN MODIFICATION ---
     
     return fig
+
 
 
 
