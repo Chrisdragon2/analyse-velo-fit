@@ -231,7 +231,7 @@ def main_app():
 
                     if not df_sprint_segment.empty:
                          fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
-                         st.plotly_chart(fig, use_container_width=True, key=f"sprint_chart_{index}")
+                         st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else:
                          st.warning(f"Segment vide pour sprint {index+1}.")
                 except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(ke)
@@ -243,3 +243,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
