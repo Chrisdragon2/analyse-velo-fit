@@ -8,7 +8,7 @@ import streamlit as st
 def create_climb_figure(df_climb, alt_col_to_use, CHUNK_DISTANCE_DISPLAY, resultats_montées, index):
     """Crée la figure Plotly avec un design épuré."""
     
-    PENTE_MAX_COULEUR = 20.0
+    PENTE_MAX_COULEUR = 15.0
     CUSTOM_COLORSCALE = [[0.0, 'rgb(0,128,0)'], [0.25, 'rgb(255,255,0)'], [0.5, 'rgb(255,165,0)'], [0.75, 'rgb(255,0,0)'], [1.0, 'rgb(0,0,0)']]
     
     cols_to_convert = ['distance', 'altitude', 'speed', 'pente', 'heart_rate', 'cadence', 'altitude_lisse', 'estimated_power']
@@ -249,6 +249,7 @@ def create_sprint_figure(df_sprint_segment, sprint_info, index, display_mode="co
     # --- FIN MODIFICATION ---
     
     return fig
+
 
 
 
