@@ -46,7 +46,6 @@ def main_app():
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
             total_weight_kg = cyclist_weight_kg + bike_weight_kg
-            # Utiliser st.caption pour les infos secondaires est plus "épuré"
             st.caption(f"Poids total calculé : {total_weight_kg:.1f} kg")
 
             tire_width_mm = st.number_input("Largeur des Pneus (mm)", min_value=20, max_value=60, value=28, step=1)
@@ -71,7 +70,7 @@ def main_app():
                 key="chunk_distance"
             )
 
-        # --- Section 4 (Repliée par défaut) ---
+        # --- MODIFIÉ : Section 4 (Repliée par défaut) ---
         with st.expander("4. Paramètres des Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse de pointe minimale (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée minimale du sprint (s)", 3, 15, 5, 1, key="sprint_duration")
@@ -85,6 +84,13 @@ def main_app():
                 "Distance max. entre sprints à fusionner (m)",
                 min_value=10, max_value=200, value=50, step=10, key="sprint_gap_dist"
             )
+            # --- AJOUT DU CURSEUR "REMBOBINAGE" ---
+            sprint_rewind_sec = st.slider(
+                "Secondes 'Montée en Puissance'", 0, 20, 10, 1, 
+                key="sprint_rewind",
+                help="Combien de secondes avant le sprint officiel (haute vitesse) inclure pour trouver le V-min."
+            )
+            # --- FIN AJOUT ---
     # --- FIN SIDEBAR ---
 
     # --- AFFICHAGE PRINCIPAL ---
@@ -113,8 +119,8 @@ def main_app():
             
             # Analyse Montées
             try:
-                df_analyzed = identify_and_filter_initial_climbs(df_analyzed, min_pente)
-                montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed, max_gap_climb)
+                df_analyzed_climbs = identify_and_filter_initial_climbs(df_analyzed, min_pente)
+                montees_grouped, df_blocs, bloc_map = group_and_merge_climbs(df_analyzed_climbs, max_gap_climb)
                 resultats_montées = calculate_climb_summary(montees_grouped, min_climb_distance)
                 resultats_df = pd.DataFrame(resultats_montées)
             except Exception as e:
@@ -122,10 +128,13 @@ def main_app():
 
             # Détection Sprints
             try:
+                # --- MODIFIÉ : Ajout de sprint_rewind_sec ---
                 sprint_results = detect_sprints(
                     df_analyzed, min_peak_speed_sprint, min_gradient_sprint,
-                    max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint
+                    max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint,
+                    sprint_rewind_sec # Argument ajouté
                 )
+                # --- FIN MODIFICATION ---
                 sprints_df_full = pd.DataFrame(sprint_results)
             except Exception as e:
                 sprint_error = f"Erreur détection sprints : {e}"
@@ -157,8 +166,6 @@ def main_app():
             temps_deplacement_sec = len(df[df['speed'] > 1.0]) # Seuil de 1m/s = 3.6km/h
             vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
             col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
-            
-            # (On ajoutera la carte et le profil global ici)
             
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
@@ -211,7 +218,7 @@ def main_app():
         if not sprints_df_full.empty:
             for index, sprint_info in sprints_df_full.iterrows():
                 try:
-                    start_timestamp = sprint_info['Début']
+                    start_timestamp = sprint_info['Début'] # C'est maintenant le début V-min
                     if not isinstance(start_timestamp, pd.Timestamp): st.warning(f"Format début incorrect sprint {index+1}."); continue
                     try: duration_float = float(sprint_info['Durée (s)'])
                     except (ValueError, TypeError): st.warning(f"Format durée incorrect sprint {index+1}."); continue
@@ -219,16 +226,17 @@ def main_app():
                     end_timestamp = start_timestamp + pd.Timedelta(seconds=duration_float)
                     
                     if start_timestamp in df_analyzed.index and end_timestamp <= df_analyzed.index[-1]:
-                        df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
+                         df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
                     elif start_timestamp in df_analyzed.index:
-                        df_sprint_segment = df_analyzed.loc[start_timestamp:]
+                         df_sprint_segment = df_analyzed.loc[start_timestamp:]
                     else: df_sprint_segment = pd.DataFrame()
 
                     if not df_sprint_segment.empty:
-                        fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index)
-                        st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
+                         # L'appel est maintenant plus simple, sans les temps de surbrillance
+                         fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index)
+                         st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else:
-                        st.warning(f"Segment vide pour sprint {index+1}.")
+                         st.warning(f"Segment vide pour sprint {index+1}.")
                 except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(ke)
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error:
