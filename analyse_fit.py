@@ -120,33 +120,71 @@ def main_app():
     # --- STRUCTURE PAR ONGLETS ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
-    # --- MODIFIÉ : Onglet 1: Résumé (Utilise session_data) ---
+   # --- Onglet 1: Résumé (Mis à jour pour Gérer Données Manquantes) ---
     with tab_summary:
         st.header("Résumé de la Sortie")
+        
+        # Sécurité au cas où session_data n'existerait pas
+        if 'session_data' not in locals():
+            session_data = {}
+            
         try:
             st.subheader("Statistiques Clés")
             
-            # Utiliser les données officielles du 'session'
+            # --- Données Principales (toujours calculées) ---
+            # On utilise .get() avec une valeur de repli (fallback) calculée depuis df
             dist_totale_km = session_data.get('total_distance', df['distance'].iloc[-1]) / 1000
             d_plus = session_data.get('total_ascent', df['altitude'].diff().clip(lower=0).sum())
             
-            # Temps de déplacement officiel
+            # Temps de déplacement (officiel ou calculé)
             temps_deplacement_sec = session_data.get('total_moving_time', len(df[df['speed'] > 1.0]))
             temps_deplacement_str = str(pd.to_timedelta(temps_deplacement_sec, unit='s')).split(' ')[-1].split('.')[0]
             
-            # Vitesse moyenne officielle
-            vitesse_moy = (dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
-            
+            # Vitesse moyenne (officielle ou calculée)
+            v_moy_session = session_data.get('avg_speed', 0) 
+            if v_moy_session > 0:
+                vitesse_moy_kmh = v_moy_session * 3.6 # Conversion m/s -> km/h
+            else: # Fallback
+                vitesse_moy_kmh = (dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
+
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             col3.metric("Temps de Déplacement", temps_deplacement_str)
-            col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
+            col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
             
+            # --- Données Secondaires (Vérification d'existence) ---
+            st.subheader("Statistiques Secondaires")
+            
+            # Vitesse Max (officielle ou calculée)
+            v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
+            
+            # Données optionnelles (FC)
+            avg_hr = session_data.get('avg_heart_rate')
+            max_hr = session_data.get('max_heart_rate')
+            
+            col1b, col2b, col3b = st.columns(3)
+            col1b.metric("Vitesse Max", f"{v_max_kmh:.2f} km/h")
+            col2b.metric("FC Moyenne", f"{avg_hr:.0f} bpm" if avg_hr else "N/A")
+            col3b.metric("FC Max", f"{max_hr:.0f} bpm" if max_hr else "N/A")
+
+            # --- Puissance Estimée (Vérification d'existence) ---
+            st.subheader("Analyse de Puissance (Estimée)")
+            
+            # Vérifier si la colonne a été calculée ET n'est pas vide
+            if 'estimated_power' in df.columns and not df['estimated_power'].isnull().all():
+                power_avg_est = df['estimated_power'].mean()
+                power_max_est = df['estimated_power'].max()
+                
+                col1c, col2c = st.columns(2)
+                col1c.metric("Puissance Estimée Moyenne", f"{power_avg_est:.0f} W")
+                col2c.metric("Puissance Estimée Max", f"{power_max_est:.0f} W")
+            else:
+                st.info("Aucune donnée de puissance estimée à afficher (calcul impossible ou données d'entrée manquantes).")
+
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
-    # --- FIN MODIFICATION ---
-
+            
     # --- Onglet 2: Montées ---
     with tab_climbs:
         st.header("Tableau de Bord des Montées")
@@ -227,3 +265,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
