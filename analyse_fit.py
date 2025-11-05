@@ -142,20 +142,20 @@ def main_app():
                 col1, col2, col3 = st.columns(3, gap="large")
 
                 with col1:
-                    st.subheader("🏁 Sortie")
+                    st.subheader("Sortie")
                     st.metric("Distance Totale", f"{summary['dist_totale_km']:.2f} km")
                     st.metric("Dénivelé Positif", f"{summary['d_plus']:.0f} m")
                     st.metric("Temps de Déplacement", summary['temps_deplacement_str'])
                 
                 with col2:
-                    st.subheader("🚀 Performance")
+                    st.subheader("Performance")
                     st.metric("Vitesse Moyenne", f"{summary['vitesse_moy_kmh']:.2f} km/h")
                     st.metric("Vitesse Max", f"{summary['v_max_kmh']:.2f} km/h")
                     st.metric("FC Moyenne", f"{summary['avg_hr']:.0f} bpm" if summary.get('avg_hr') else "N/A")
                     st.metric("FC Max", f"{summary['max_hr']:.0f} bpm" if summary.get('max_hr') else "N/A")
 
                 with col3:
-                    st.subheader("⚡ Puissance & Cadence")
+                    st.subheader("Puissance & Cadence")
                     st.metric("Puissance Estimée Moy.", f"{summary['power_avg_est']:.0f} W" if pd.notna(summary.get('power_avg_est')) else "N/A")
                     st.metric("Puissance Estimée Max", f"{summary['power_max_est']:.0f} W" if pd.notna(summary.get('power_max_est')) else "N/A")
                     st.metric("Cadence Moyenne", f"{summary['avg_cad']:.0f} rpm" if summary.get('avg_cad') and summary['avg_cad'] > 0 else "N/A")
@@ -244,6 +244,7 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
 
 
