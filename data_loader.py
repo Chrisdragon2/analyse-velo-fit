@@ -7,7 +7,7 @@ import streamlit as st
 @st.cache_data
 def load_and_clean_data(file_buffer):
     """
-    Lit le .fit, nettoie les 'record' et extrait TOUTES les données 'session'.
+    Lit le .fit, nettoie les 'record', convertit le GPS, et extrait les 'session'.
     """
     
     # --- 1. Lire les données 'record' (seconde par seconde) ---
@@ -27,37 +27,49 @@ def load_and_clean_data(file_buffer):
 
         df = pd.DataFrame(data_list)
         
-        # Conversion et nettoyage du DataFrame principal
+        # Conversion et nettoyage
         cols_to_convert = ['altitude', 'distance', 'enhanced_altitude', 'enhanced_speed',
-                           'heart_rate', 'position_lat', 'position_long', 'speed',
-                           'temperature', 'cadence']
+                           'heart_rate', 'speed', 'temperature', 'cadence']
+        
+        # Colonnes GPS à convertir
+        cols_gps = ['position_lat', 'position_long']
+
         for col in df.columns:
-            if col in cols_to_convert: df[col] = pd.to_numeric(df[col], errors='coerce')
-            elif col == 'timestamp': df[col] = pd.to_datetime(df[col], errors='coerce')
+            if col in cols_to_convert: 
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            elif col == 'timestamp': 
+                 df[col] = pd.to_datetime(df[col], errors='coerce')
+            # --- NOUVEAU : Conversion GPS (Semicircles -> Degrés) ---
+            elif col in cols_gps:
+                # La formule de conversion FIT est : degrés = semicircles * (180 / 2^31)
+                df[col] = pd.to_numeric(df[col], errors='coerce') * (180 / 2**31)
+            # --- FIN NOUVEAU ---
+
         if 'cadence' in df.columns: df['cadence'] = df['cadence'].ffill().bfill()
-        cols_essentielles = ['distance', 'altitude', 'timestamp', 'speed']
+        
+        # Mettre à jour les colonnes essentielles pour inclure le GPS
+        cols_essentielles = ['distance', 'altitude', 'timestamp', 'speed', 'position_lat', 'position_long']
         df = df.dropna(subset=[c for c in cols_essentielles if c in df.columns])
-        if df.empty: return None, None, "Fichier vide après nettoyage."
+        
+        if df.empty: return None, None, "Fichier vide ou sans données GPS essentielles après nettoyage."
         df = df.set_index('timestamp').sort_index()
 
-        # --- 2. NOUVEAU : Lire TOUTES les données 'session' (Résumé) ---
+        # --- 2. Lire les données 'session' ---
         session_data = {}
-        file_buffer.seek(0) # Rembobiner le buffer
+        file_buffer.seek(0)
         fitfile_session = FitFile(io.BytesIO(file_buffer.read()))
         
         session_messages = list(fitfile_session.get_messages('session'))
         if session_messages:
             session = session_messages[0]
-            # Boucle simple pour tout prendre
             for field in session:
                 if field.value is not None:
                     session_data[field.name] = field.value
         else:
-            # Ce n'est pas bloquant, on le signale juste
-            st.warning("Aucun message 'session' de résumé trouvé. Le résumé global sera calculé manuellement.")
-            session_data = {} # Renvoyer un dict vide
+            st.warning("Aucun message 'session' de résumé trouvé.")
+            session_data = {}
 
-        return df, session_data, None # Retourne le df ET le résumé
+        return df, session_data, None
 
     except Exception as e: 
         return None, None, f"Erreur traitement : {e}"
