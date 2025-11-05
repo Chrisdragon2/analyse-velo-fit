@@ -31,7 +31,7 @@ def load_and_clean_data(file_buffer):
         cols_to_convert = ['altitude', 'distance', 'enhanced_altitude', 'enhanced_speed',
                            'heart_rate', 'speed', 'temperature', 'cadence']
         
-        # Colonnes GPS à convertir
+        # --- MODIFIÉ : Colonnes GPS à convertir ---
         cols_gps = ['position_lat', 'position_long']
 
         for col in df.columns:
@@ -39,19 +39,20 @@ def load_and_clean_data(file_buffer):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             elif col == 'timestamp': 
                  df[col] = pd.to_datetime(df[col], errors='coerce')
-            # --- NOUVEAU : Conversion GPS (Semicircles -> Degrés) ---
+            # --- Conversion GPS (Semicircles -> Degrés) ---
             elif col in cols_gps:
-                # La formule de conversion FIT est : degrés = semicircles * (180 / 2^31)
                 df[col] = pd.to_numeric(df[col], errors='coerce') * (180 / 2**31)
-            # --- FIN NOUVEAU ---
+            # --- FIN MODIFICATION ---
 
         if 'cadence' in df.columns: df['cadence'] = df['cadence'].ffill().bfill()
         
         # Mettre à jour les colonnes essentielles pour inclure le GPS
-        cols_essentielles = ['distance', 'altitude', 'timestamp', 'speed', 'position_lat', 'position_long']
+        # Si le GPS n'est pas là, l'analyse fonctionnera quand même, mais la carte n'apparaîtra pas
+        cols_essentielles = ['distance', 'altitude', 'timestamp', 'speed']
+        # On ne droppe pas les lignes sans GPS, on les gérera plus tard
         df = df.dropna(subset=[c for c in cols_essentielles if c in df.columns])
         
-        if df.empty: return None, None, "Fichier vide ou sans données GPS essentielles après nettoyage."
+        if df.empty: return None, None, "Fichier vide après nettoyage."
         df = df.set_index('timestamp').sort_index()
 
         # --- 2. Lire les données 'session' ---
