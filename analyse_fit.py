@@ -133,23 +133,30 @@ def main_app():
 
     # --- MODIFIÉ : STRUCTURE PAR ONGLETS (sans emojis) ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
-
-    # --- Onglet 1: Résumé ---
+    
+# --- Onglet 1: Résumé ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         try:
             st.subheader("Statistiques Clés")
+            col1, col2, col3, col4 = st.columns(4)
+            
             dist_totale = df['distance'].iloc[-1] / 1000
+            col1.metric("Distance Totale", f"{dist_totale:.2f} km")
+            
             d_plus = df['altitude'].diff().clip(lower=0).sum()
+            col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
+            
+            # --- MODIFIÉ : Formatage du Temps Total ---
             temps_total_sec = (df.index[-1] - df.index[0]).total_seconds()
-            temps_total_str = str(pd.to_timedelta(temps_total_sec, unit='s')).split(' ')[-1].split('.')[0]
+            temps_total_td = pd.to_timedelta(temps_total_sec, unit='s')
+            # Formate en HH:MM:SS
+            temps_total_str = str(temps_total_td).split(' ')[-1].split('.')[0] 
+            col3.metric("Temps Total", temps_total_str) # Affiche la chaîne propre
+            # --- FIN MODIFICATION ---
+            
             temps_deplacement_sec = len(df[df['speed'] > 1.0])
             vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
-            
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Distance Totale", f"{dist_totale:.2f} km")
-            col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
-            col3.metric("Temps Total", f"{temps_total_str}")
             col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
             
         except Exception as e:
@@ -239,3 +246,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
