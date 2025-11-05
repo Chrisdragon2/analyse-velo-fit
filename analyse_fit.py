@@ -17,6 +17,7 @@ try:
         calculate_climb_summary
     )
     from plotting import create_climb_figure, create_sprint_figure
+    from map_plotter import create_map_figure
     from sprint_detector import detect_sprints
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py sont présents. Détail: {e}")
@@ -121,7 +122,7 @@ def main_app():
     # --- STRUCTURE PAR ONGLETS ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
-   # --- Onglet 1: Résumé (Maintenant externalisé) ---
+  # --- Onglet 1: Résumé ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         
@@ -129,40 +130,81 @@ def main_app():
         if 'session_data' not in locals():
             session_data = {}
             
-        # Appeler la fonction de calcul du nouveau module
-        summary, summary_error = calculate_global_summary(df, session_data)
+        try:
+            st.subheader("Statistiques Clés")
+            
+            # --- Données Principales (Officielles ou calculées) ---
+            dist_totale_km = session_data.get('total_distance', df['distance'].iloc[-1]) / 1000
+            d_plus = session_data.get('total_ascent', df['altitude'].diff().clip(lower=0).sum())
+            
+            temps_deplacement_sec = session_data.get('total_moving_time', len(df[df['speed'] > 1.0]))
+            temps_deplacement_str = str(pd.to_timedelta(temps_deplacement_sec, unit='s')).split(' ')[-1].split('.')[0]
+            
+            # Vitesse moyenne (priorité à l'officielle si elle existe)
+            v_moy_session = session_data.get('avg_speed', 0) 
+            if v_moy_session > 0:
+                vitesse_moy_kmh = v_moy_session * 3.6 # Conversion m/s -> km/h
+            else: # Fallback si non présente
+                vitesse_moy_kmh = (dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
 
-        if summary_error:
-            st.warning(summary_error)
-        else:
-            try:
-                st.subheader("Statistiques Clés")
-                
-                # --- 2. Créer 3 colonnes pour l'affichage ---
-                col1, col2, col3 = st.columns(3, gap="large")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
+            col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
+            col3.metric("Temps de Déplacement", temps_deplacement_str)
+            col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
+            
+            # --- Affichage de la carte ---
+            st.subheader("Carte du Parcours")
+            # On utilise df_analyzed car il contient la puissance estimée et les deltas
+            if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
+                map_fig = create_map_figure(df_analyzed)
+                st.plotly_chart(map_fig, use_container_width=True)
+            else:
+                st.warning("Données GPS (position_lat/position_long) non trouvées dans le fichier. Impossible d'afficher la carte.")
+            
+            # --- Données Secondaires (Vérification d'existence) ---
+            st.subheader("Statistiques Secondaires")
+            
+            v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
+            
+            # Données FC
+            avg_hr = session_data.get('avg_heart_rate')
+            max_hr = session_data.get('max_heart_rate')
+            
+            # Données Cadence (avec fallback)
+            avg_cad = session_data.get('avg_cadence')
+            max_cad = session_data.get('max_cadence')
+            if 'cadence' in df.columns and not avg_cad and not df[df['cadence'] > 0].empty:
+                avg_cad = df[df['cadence'] > 0]['cadence'].mean()
+            if 'cadence' in df.columns and not max_cad:
+                max_cad = df['cadence'].max()
 
-                with col1:
-                    st.subheader("Sortie")
-                    st.metric("Distance Totale", f"{summary['dist_totale_km']:.2f} km")
-                    st.metric("Dénivelé Positif", f"{summary['d_plus']:.0f} m")
-                    st.metric("Temps de Déplacement", summary['temps_deplacement_str'])
-                
-                with col2:
-                    st.subheader("Performance")
-                    st.metric("Vitesse Moyenne", f"{summary['vitesse_moy_kmh']:.2f} km/h")
-                    st.metric("Vitesse Max", f"{summary['v_max_kmh']:.2f} km/h")
-                    st.metric("FC Moyenne", f"{summary['avg_hr']:.0f} bpm" if summary.get('avg_hr') else "N/A")
-                    st.metric("FC Max", f"{summary['max_hr']:.0f} bpm" if summary.get('max_hr') else "N/A")
+            # Affichage en 2 lignes pour plus de clarté
+            col1b, col2b, col3b = st.columns(3)
+            col1b.metric("Vitesse Max", f"{v_max_kmh:.2f} km/h")
+            col2b.metric("FC Moyenne", f"{avg_hr:.0f} bpm" if avg_hr else "N/A")
+            col3b.metric("Cadence Moyenne", f"{avg_cad:.0f} rpm" if avg_cad and avg_cad > 0 else "N/A")
 
-                with col3:
-                    st.subheader("Puissance & Cadence")
-                    st.metric("Puissance Estimée Moy.", f"{summary['power_avg_est']:.0f} W" if pd.notna(summary.get('power_avg_est')) else "N/A")
-                    st.metric("Puissance Estimée Max", f"{summary['power_max_est']:.0f} W" if pd.notna(summary.get('power_max_est')) else "N/A")
-                    st.metric("Cadence Moyenne", f"{summary['avg_cad']:.0f} rpm" if summary.get('avg_cad') and summary['avg_cad'] > 0 else "N/A")
-                    st.metric("Cadence Max", f"{summary['max_cad']:.0f} rpm" if summary.get('max_cad') else "N/A")
+            col1c, col2c, col3c = st.columns(3)
+            col1c.empty() 
+            col2c.metric("FC Max", f"{max_hr:.0f} bpm" if max_hr else "N/A")
+            col3c.metric("Cadence Max", f"{max_cad:.0f} rpm" if max_cad else "N/A")
+
+            # --- Puissance Estimée (Vérification d'existence) ---
+            st.subheader("Analyse de Puissance (Estimée)")
+            
+            if 'estimated_power' in df.columns and not df['estimated_power'].isnull().all():
+                power_avg_est = df['estimated_power'].mean()
+                power_max_est = df['estimated_power'].max()
                 
-            except Exception as e:
-                st.warning(f"Erreur lors de l'affichage du résumé : {e}")
+                col1d, col2d = st.columns(2)
+                col1d.metric("Puissance Estimée Moyenne", f"{power_avg_est:.0f} W")
+                col2d.metric("Puissance Estimée Max", f"{power_max_est:.0f} W")
+            else:
+                st.info("Aucune donnée de puissance estimée à afficher (calcul impossible ou données d'entrée manquantes).")
+
+        except Exception as e:
+            st.warning(f"Impossible d'afficher le résumé : {e}")
             
     # --- Onglet 2: Montées ---
     with tab_climbs:
@@ -244,6 +286,7 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
 
 
