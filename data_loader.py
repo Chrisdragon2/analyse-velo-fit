@@ -7,13 +7,11 @@ import streamlit as st
 @st.cache_data
 def load_and_clean_data(file_buffer):
     """
-    Lit le fichier FIT, nettoie les données 'record' (seconde par seconde)
-    ET extrait les données de résumé 'session'.
+    Lit le .fit, nettoie les 'record' et extrait TOUTES les données 'session'.
     """
     
     # --- 1. Lire les données 'record' (seconde par seconde) ---
     data_list = []
-    # Nous devons utiliser .seek(0) si nous lisons le buffer plusieurs fois
     file_buffer.seek(0) 
     
     try:
@@ -42,21 +40,22 @@ def load_and_clean_data(file_buffer):
         if df.empty: return None, None, "Fichier vide après nettoyage."
         df = df.set_index('timestamp').sort_index()
 
-        # --- 2. NOUVEAU : Lire les données 'session' (Résumé) ---
+        # --- 2. NOUVEAU : Lire TOUTES les données 'session' (Résumé) ---
         session_data = {}
-        file_buffer.seek(0) # Rembobiner le buffer pour le relire
+        file_buffer.seek(0) # Rembobiner le buffer
         fitfile_session = FitFile(io.BytesIO(file_buffer.read()))
         
         session_messages = list(fitfile_session.get_messages('session'))
         if session_messages:
-            # On prend la première session trouvée
             session = session_messages[0]
-            # Extraire les champs de résumé dont on a besoin
+            # Boucle simple pour tout prendre
             for field in session:
-                if field.name in ('total_moving_time', 'total_elapsed_time', 'total_distance', 'total_ascent'):
+                if field.value is not None:
                     session_data[field.name] = field.value
         else:
-            return df, None, "Aucun message 'session' de résumé trouvé."
+            # Ce n'est pas bloquant, on le signale juste
+            st.warning("Aucun message 'session' de résumé trouvé. Le résumé global sera calculé manuellement.")
+            session_data = {} # Renvoyer un dict vide
 
         return df, session_data, None # Retourne le df ET le résumé
 
