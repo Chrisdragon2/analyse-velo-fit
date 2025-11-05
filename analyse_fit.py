@@ -120,7 +120,7 @@ def main_app():
     # --- STRUCTURE PAR ONGLETS ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
-   # --- Onglet 1: Résumé (Mis à jour avec Cadence) ---
+   # --- Onglet 1: Résumé (Réorganisé et Épuré) ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         
@@ -129,74 +129,58 @@ def main_app():
             session_data = {}
             
         try:
-            st.subheader("Statistiques Clés")
+            # --- 1. Calculer toutes les valeurs d'abord ---
             
-            # --- Données Principales (toujours calculées) ---
+            # Sortie
             dist_totale_km = session_data.get('total_distance', df['distance'].iloc[-1]) / 1000
             d_plus = session_data.get('total_ascent', df['altitude'].diff().clip(lower=0).sum())
-            
             temps_deplacement_sec = session_data.get('total_moving_time', len(df[df['speed'] > 1.0]))
             temps_deplacement_str = str(pd.to_timedelta(temps_deplacement_sec, unit='s')).split(' ')[-1].split('.')[0]
-            
-            v_moy_session = session_data.get('avg_speed', 0) 
-            if v_moy_session > 0:
-                vitesse_moy_kmh = v_moy_session * 3.6 # Conversion m/s -> km/h
-            else: # Fallback
-                vitesse_moy_kmh = (dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
 
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
-            col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
-            col3.metric("Temps de Déplacement", temps_deplacement_str)
-            col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
-            
-            # --- Données Secondaires (Vérification d'existence) ---
-            st.subheader("Statistiques Secondaires")
-            
+            # Performance
+            v_moy_session = session_data.get('avg_speed', 0) 
+            vitesse_moy_kmh = (v_moy_session * 3.6) if v_moy_session > 0 else ((dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0)
             v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
-            
-            # Données FC
             avg_hr = session_data.get('avg_heart_rate')
             max_hr = session_data.get('max_heart_rate')
-            
-            # --- NOUVEAU : Données Cadence ---
-            # Utiliser la donnée 'session' si elle existe
+
+            # Cadence & Puissance
             avg_cad = session_data.get('avg_cadence')
             max_cad = session_data.get('max_cadence')
-            
-            # Fallback si 'session' ne contient pas la cadence (mais 'record' oui)
             if 'cadence' in df.columns and not avg_cad:
-                # Calculer la moyenne sans les zéros (quand on ne pédale pas)
                 avg_cad = df[df['cadence'] > 0]['cadence'].mean()
             if 'cadence' in df.columns and not max_cad:
                 max_cad = df['cadence'].max()
-            # --- FIN NOUVEAU ---
-
-            # Réorganiser l'affichage en 2 lignes pour plus de clarté
-            col1b, col2b, col3b = st.columns(3)
-            col1b.metric("Vitesse Max", f"{v_max_kmh:.2f} km/h")
-            col2b.metric("FC Moyenne", f"{avg_hr:.0f} bpm" if avg_hr else "N/A")
-            col3b.metric("Cadence Moyenne", f"{avg_cad:.0f} rpm" if avg_cad and avg_cad > 0 else "N/A")
-
-            col1c, col2c, col3c = st.columns(3)
-            # Utiliser une colonne vide (ou une métrique invisible) pour décaler
-            col1c.empty() 
-            col2c.metric("FC Max", f"{max_hr:.0f} bpm" if max_hr else "N/A")
-            col3c.metric("Cadence Max", f"{max_cad:.0f} rpm" if max_cad else "N/A")
-
-            # --- Puissance Estimée (Vérification d'existence) ---
-            st.subheader("Analyse de Puissance (Estimée)")
-            
+                
+            power_avg_est = np.nan
+            power_max_est = np.nan
             if 'estimated_power' in df.columns and not df['estimated_power'].isnull().all():
                 power_avg_est = df['estimated_power'].mean()
                 power_max_est = df['estimated_power'].max()
-                
-                col1d, col2d = st.columns(2)
-                col1d.metric("Puissance Estimée Moyenne", f"{power_avg_est:.0f} W")
-                col2d.metric("Puissance Estimée Max", f"{power_max_est:.0f} W")
-            else:
-                st.info("Aucune donnée de puissance estimée à afficher.")
 
+            # --- 2. Créer 3 colonnes pour l'affichage ---
+            col1, col2, col3 = st.columns(3, gap="large") # 'gap' ajoute de l'espace
+
+            with col1:
+                st.subheader("🏁 Sortie")
+                st.metric("Distance Totale", f"{dist_totale_km:.2f} km")
+                st.metric("Dénivelé Positif", f"{d_plus:.0f} m")
+                st.metric("Temps de Déplacement", temps_deplacement_str)
+            
+            with col2:
+                st.subheader("🚀 Performance")
+                st.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
+                st.metric("Vitesse Max", f"{v_max_kmh:.2f} km/h")
+                st.metric("FC Moyenne", f"{avg_hr:.0f} bpm" if avg_hr else "N/A")
+                st.metric("FC Max", f"{max_hr:.0f} bpm" if max_hr else "N/A")
+
+            with col3:
+                st.subheader("⚡ Puissance & Cadence")
+                st.metric("Puissance Estimée Moy.", f"{power_avg_est:.0f} W" if pd.notna(power_avg_est) else "N/A")
+                st.metric("Puissance Estimée Max", f"{power_max_est:.0f} W" if pd.notna(power_max_est) else "N/A")
+                st.metric("Cadence Moyenne", f"{avg_cad:.0f} rpm" if avg_cad and avg_cad > 0 else "N/A")
+                st.metric("Cadence Max", f"{max_cad:.0f} rpm" if max_cad else "N/A")
+            
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
             
@@ -280,5 +264,6 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
 
