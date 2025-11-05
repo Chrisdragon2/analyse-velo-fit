@@ -32,14 +32,11 @@ def estimate_crr_from_width(width_mm):
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
-    # Configuration de la page (simple)
-    st.set_page_config(
-        layout="wide",
-        page_title="Analyseur FIT"
-    )
-    
-    st.title("Analyseur d'Ascensions et Sprints")
-    
+    # --- MODIFIÉ : Titres épurés ---
+    st.set_page_config(layout="wide", page_title="Analyseur de Sortie FIT")
+    st.title("Analyseur de Sortie FIT")
+    # --- FIN MODIFICATION ---
+
     # --- Initialisation de l'état de session (pour le bouton sprint) ---
     if 'sprint_display_mode' not in st.session_state:
         st.session_state.sprint_display_mode = "courbes" # Défaut: Courbes
@@ -59,11 +56,11 @@ def main_app():
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
             total_weight_kg = cyclist_weight_kg + bike_weight_kg
-            st.markdown(f"_(Poids total calculé : {total_weight_kg:.1f} kg)_")
+            st.caption(f"Poids total calculé : {total_weight_kg:.1f} kg")
 
             tire_width_mm = st.number_input("Largeur des Pneus (mm)", min_value=20, max_value=60, value=28, step=1)
             crr_value = estimate_crr_from_width(tire_width_mm)
-            st.markdown(f"_(Crr estimé : {crr_value:.4f})_")
+            st.caption(f"Crr estimé : {crr_value:.4f}")
 
             wheel_size_options = ["700c (Route/Gravel)", "650b (Gravel/VTT)", "26\" (VTT ancien)", "29\" (VTT moderne)"]
             selected_wheel_size = st.selectbox("Taille des Roues", options=wheel_size_options)
@@ -134,15 +131,14 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS (avec icônes épurées) ---
-    tab_summary, tab_climbs, tab_sprints = st.tabs(["📊", "⛰️", "💨"])
+    # --- MODIFIÉ : STRUCTURE PAR ONGLETS (sans emojis) ---
+    tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         try:
             st.subheader("Statistiques Clés")
-            # Utiliser st.metric standard
             dist_totale = df['distance'].iloc[-1] / 1000
             d_plus = df['altitude'].diff().clip(lower=0).sum()
             temps_total_sec = (df.index[-1] - df.index[0]).total_seconds()
@@ -161,14 +157,14 @@ def main_app():
 
     # --- Onglet 2: Montées ---
     with tab_climbs:
-        st.header("Tableau de Bord des Montées")
+        st.header("Tableau de Bord des Montées") # Titre épuré
         if analysis_error: st.error(analysis_error)
         elif resultats_df.empty:
             st.warning(f"Aucune ascension ({min_climb_distance}m+, {min_pente}%+) trouvée.")
         else:
             st.dataframe(resultats_df.drop(columns=['index'], errors='ignore'), use_container_width=True)
 
-        st.header("Profils Détaillés des Montées")
+        st.header("Profils Détaillés des Montées") # Titre épuré
         if montees_grouped is not None and not resultats_df.empty:
             processed_results_count = 0
             montee_ids = list(montees_grouped.groups.keys())
@@ -194,7 +190,7 @@ def main_app():
 
     # --- Onglet 3: Sprints ---
     with tab_sprints:
-        st.header("Tableau Récapitulatif des Sprints")
+        st.header("Tableau Récapitulatif des Sprints") # Titre épuré
         if sprint_error: st.error(sprint_error)
         elif sprints_df_full.empty:
             st.warning("Aucun sprint détecté avec ces paramètres.")
@@ -203,7 +199,7 @@ def main_app():
             cols_existantes = [col for col in cols_to_show if col in sprints_df_full.columns]
             st.dataframe(sprints_df_full[cols_existantes], use_container_width=True)
 
-        st.header("Profils Détaillés des Sprints")
+        st.header("Profils Détaillés des Sprints") # Titre épuré
         
         # Bouton de bascule
         current_mode_label = {
@@ -243,4 +239,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
