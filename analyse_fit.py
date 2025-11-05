@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import plotly.colors
-import io
+import plotly.graph_objects as go 
+import plotly.colors              
+import io 
 
 # --- Importations depuis les modules ---
 try:
@@ -18,7 +18,7 @@ try:
     from plotting import create_climb_figure, create_sprint_figure
     from sprint_detector import detect_sprints
 except ImportError as e:
-    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
+    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py sont présents. Détail: {e}")
     st.stop()
 
 # --- Fonction simplifiée pour estimer Crr ---
@@ -32,14 +32,11 @@ def estimate_crr_from_width(width_mm):
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
-    # --- MODIFIÉ : Titres épurés ---
-    st.set_page_config(layout="wide", page_title="Analyseur de Sortie FIT")
+    st.set_page_config(layout="wide", page_title="Analyseur FIT")
     st.title("Analyseur de Sortie FIT")
-    # --- FIN MODIFICATION ---
-
-    # --- Initialisation de l'état de session (pour le bouton sprint) ---
+    
     if 'sprint_display_mode' not in st.session_state:
-        st.session_state.sprint_display_mode = "courbes" # Défaut: Courbes
+        st.session_state.sprint_display_mode = "courbes"
 
     def toggle_sprint_display_mode():
         if st.session_state.sprint_display_mode == "courbes":
@@ -47,45 +44,33 @@ def main_app():
         else:
             st.session_state.sprint_display_mode = "courbes"
 
-    # --- INPUT UTILISATEUR (Sidebar avec Expanders et titres courts) ---
+    # --- INPUT UTILISATEUR (Sidebar) ---
     with st.sidebar:
         st.header("1. Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
-
         with st.expander("2. Physique", expanded=True):
             cyclist_weight_kg = st.number_input("Poids du Cycliste (kg)", 30.0, 150.0, 68.0, 0.5)
             bike_weight_kg = st.number_input("Poids du Vélo + Équipement (kg)", 3.0, 25.0, 9.0, 0.1)
             total_weight_kg = cyclist_weight_kg + bike_weight_kg
-            st.caption(f"Poids total calculé : {total_weight_kg:.1f} kg")
-
+            st.markdown(f"_(Poids total calculé : {total_weight_kg:.1f} kg)_")
             tire_width_mm = st.number_input("Largeur des Pneus (mm)", min_value=20, max_value=60, value=28, step=1)
             crr_value = estimate_crr_from_width(tire_width_mm)
-            st.caption(f"Crr estimé : {crr_value:.4f}")
-
+            st.markdown(f"_(Crr estimé : {crr_value:.4f})_")
             wheel_size_options = ["700c (Route/Gravel)", "650b (Gravel/VTT)", "26\" (VTT ancien)", "29\" (VTT moderne)"]
             selected_wheel_size = st.selectbox("Taille des Roues", options=wheel_size_options)
-
-            cda_value = 0.38 # Pour position cocottes
-            st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
-
+            cda_value = 0.38; st.markdown(f"**Position :** Cocottes (CdA estimé : {cda_value} m²)")
         with st.expander("3. Montées", expanded=False):
             min_climb_distance = st.slider("Longueur min. (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
             max_gap_climb = st.slider("Fusion gap (m)", 50, 500, 200, 50, key="climb_gap")
             chunk_distance_m = st.select_slider("Fenêtre Analyse Pente (m)", options=[100, 200, 500, 1000, 1500, 2000], value=100, key="chunk_distance")
-
         with st.expander("4. Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse min. (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée min. (s)", 3, 15, 5, 1, key="sprint_duration")
             slope_range_sprint = st.slider("Plage Pente (%)", -10.0, 10.0, (-5.0, 5.0), 0.5, key="sprint_slope_range")
             min_gradient_sprint, max_gradient_sprint = slope_range_sprint
             max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist")
-            sprint_rewind_sec = st.slider(
-                "Secondes 'Montée en Puissance'", 0, 20, 10, 1, 
-                key="sprint_rewind",
-                help="Combien de secondes avant le sprint officiel (haute vitesse) inclure pour trouver le V-min."
-            )
-    # --- FIN SIDEBAR ---
+            sprint_rewind_sec = st.slider("Secondes 'Montée en Puissance'", 0, 20, 10, 1, key="sprint_rewind")
 
     # --- AFFICHAGE PRINCIPAL ---
     if uploaded_file is None:
@@ -98,7 +83,8 @@ def main_app():
         analysis_error = None; sprint_error = None; montees_grouped = None; resultats_montées = []
         
         try:
-            df, error_msg = load_and_clean_data(uploaded_file)
+            # --- MODIFIÉ : Récupérer df ET session_data ---
+            df, session_data, error_msg = load_and_clean_data(uploaded_file)
             if df is None: st.error(f"Erreur chargement : {error_msg}"); st.stop()
             
             df_power_est = estimate_power(df, total_weight_kg, crr_value, cda_value)
@@ -131,49 +117,46 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- MODIFIÉ : STRUCTURE PAR ONGLETS (sans emojis) ---
+    # --- STRUCTURE PAR ONGLETS ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
-    
-# --- Onglet 1: Résumé ---
+
+    # --- MODIFIÉ : Onglet 1: Résumé (Utilise session_data) ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         try:
             st.subheader("Statistiques Clés")
             
-            # --- MODIFIÉ : Calcul des métriques ---
-            dist_totale = df['distance'].iloc[-1] / 1000
-            d_plus = df['altitude'].diff().clip(lower=0).sum()
+            # Utiliser les données officielles du 'session'
+            dist_totale_km = session_data.get('total_distance', df['distance'].iloc[-1]) / 1000
+            d_plus = session_data.get('total_ascent', df['altitude'].diff().clip(lower=0).sum())
             
-            # 1. Calculer le Temps de Déplacement (Moving Time)
-            # (On compte les secondes où la vitesse est > 1.0 m/s)
-            temps_deplacement_sec = len(df[df['speed'] > 1.0])
-            # Le formater en HH:MM:SS
+            # Temps de déplacement officiel
+            temps_deplacement_sec = session_data.get('total_moving_time', len(df[df['speed'] > 1.0]))
             temps_deplacement_str = str(pd.to_timedelta(temps_deplacement_sec, unit='s')).split(' ')[-1].split('.')[0]
-
-            # 2. Calculer la Vitesse Moyenne (basée sur le temps de déplacement)
-            vitesse_moy = (df['distance'].iloc[-1] / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
             
-            # 3. Afficher les 4 métriques
+            # Vitesse moyenne officielle
+            vitesse_moy = (dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0
+            
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Distance Totale", f"{dist_totale:.2f} km")
+            col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
-            col3.metric("Temps de Déplacement", temps_deplacement_str) # Affiche le temps de mvt
+            col3.metric("Temps de Déplacement", temps_deplacement_str)
             col4.metric("Vitesse Moyenne (en mvt)", f"{vitesse_moy:.2f} km/h")
-            # --- FIN MODIFICATION ---
             
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
+    # --- FIN MODIFICATION ---
 
     # --- Onglet 2: Montées ---
     with tab_climbs:
-        st.header("Tableau de Bord des Montées") # Titre épuré
+        st.header("Tableau de Bord des Montées")
         if analysis_error: st.error(analysis_error)
         elif resultats_df.empty:
             st.warning(f"Aucune ascension ({min_climb_distance}m+, {min_pente}%+) trouvée.")
         else:
             st.dataframe(resultats_df.drop(columns=['index'], errors='ignore'), use_container_width=True)
 
-        st.header("Profils Détaillés des Montées") # Titre épuré
+        st.header("Profils Détaillés des Montées")
         if montees_grouped is not None and not resultats_df.empty:
             processed_results_count = 0
             montee_ids = list(montees_grouped.groups.keys())
@@ -199,7 +182,7 @@ def main_app():
 
     # --- Onglet 3: Sprints ---
     with tab_sprints:
-        st.header("Tableau Récapitulatif des Sprints") # Titre épuré
+        st.header("Tableau Récapitulatif des Sprints")
         if sprint_error: st.error(sprint_error)
         elif sprints_df_full.empty:
             st.warning("Aucun sprint détecté avec ces paramètres.")
@@ -208,13 +191,9 @@ def main_app():
             cols_existantes = [col for col in cols_to_show if col in sprints_df_full.columns]
             st.dataframe(sprints_df_full[cols_existantes], use_container_width=True)
 
-        st.header("Profils Détaillés des Sprints") # Titre épuré
+        st.header("Profils Détaillés des Sprints")
         
-        # Bouton de bascule
-        current_mode_label = {
-            "courbes": "Vue actuelle : Courbes (Vitesse + Puissance)",
-            "barres": "Vue actuelle : Barres (Puissance) + Courbe (Vitesse)"
-        }
+        current_mode_label = { "courbes": "Vue actuelle : Courbes", "barres": "Vue actuelle : Barres + Courbe" }
         st.caption(current_mode_label[st.session_state.sprint_display_mode])
         st.button("Inverser Barres / Courbe", on_click=toggle_sprint_display_mode, key="toggle_sprint_view")
         
@@ -248,5 +227,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
-
