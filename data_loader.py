@@ -7,7 +7,8 @@ import streamlit as st
 @st.cache_data
 def load_and_clean_data(file_buffer):
     """
-    Lit le .fit, nettoie les 'record', convertit le GPS, et extrait les 'session'.
+    Lit le .fit, nettoie les 'record', convertit le GPS (s'il existe),
+    et extrait les 'session'.
     """
     
     # --- 1. Lire les données 'record' (seconde par seconde) ---
@@ -30,8 +31,6 @@ def load_and_clean_data(file_buffer):
         # Conversion et nettoyage
         cols_to_convert = ['altitude', 'distance', 'enhanced_altitude', 'enhanced_speed',
                            'heart_rate', 'speed', 'temperature', 'cadence']
-        
-        # --- MODIFIÉ : Colonnes GPS à convertir ---
         cols_gps = ['position_lat', 'position_long']
 
         for col in df.columns:
@@ -39,20 +38,21 @@ def load_and_clean_data(file_buffer):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             elif col == 'timestamp': 
                  df[col] = pd.to_datetime(df[col], errors='coerce')
-            # --- Conversion GPS (Semicircles -> Degrés) ---
+            # Conversion GPS (Seulement si la colonne existe)
             elif col in cols_gps:
                 df[col] = pd.to_numeric(df[col], errors='coerce') * (180 / 2**31)
-            # --- FIN MODIFICATION ---
 
         if 'cadence' in df.columns: df['cadence'] = df['cadence'].ffill().bfill()
         
-        # Mettre à jour les colonnes essentielles pour inclure le GPS
-        # Si le GPS n'est pas là, l'analyse fonctionnera quand même, mais la carte n'apparaîtra pas
+        # --- MODIFIÉ : Colonnes GPS retirées des essentielles ---
         cols_essentielles = ['distance', 'altitude', 'timestamp', 'speed']
-        # On ne droppe pas les lignes sans GPS, on les gérera plus tard
+        # On ne supprime les lignes que si les données ESSENTIELLES manquent
         df = df.dropna(subset=[c for c in cols_essentielles if c in df.columns])
         
-        if df.empty: return None, None, "Fichier vide après nettoyage."
+        if df.empty: 
+            return None, None, "Fichier vide après nettoyage (données essentielles manquantes)."
+        # --- FIN MODIFICATION ---
+            
         df = df.set_index('timestamp').sort_index()
 
         # --- 2. Lire les données 'session' ---
