@@ -27,7 +27,6 @@ def create_map_figure(df):
     # Vérifier la puissance (colonne de couleur)
     if 'estimated_power' in df_map.columns and not df_map['estimated_power'].isnull().all():
         df_map['plot_color_val'] = df_map['estimated_power']
-        # Palette 'Jet' (Bleu -> Rouge)
         color_scale = 'Jet' 
         show_colorbar = True
         cmin = df_map['plot_color_val'].min()
@@ -64,26 +63,32 @@ def create_map_figure(df):
     fig.add_trace(go.Scattermapbox(
         lat=df_sampled['position_lat'],
         lon=df_sampled['position_long'],
-        mode='lines+markers', # Ligne + Points
+        mode='lines+markers',
         customdata=customdata,
         hovertemplate=hovertemplate,
+        text=(df_sampled['speed'] * 3.6).round(1) if customdata is None else None, # Fallback pour 'text'
         marker=go.scattermapbox.Marker(
             size=6,
-            color=df_sampled['plot_color_val'], # Couleur basée sur la puissance
+            color=df_sampled['plot_color_val'],
             colorscale=color_scale,
             cmin=cmin,
             cmax=cmax,
             showscale=show_colorbar,
-            colorbar=dict(title=colorbar_title, titleside='right')
+            colorbar=dict(
+                title=colorbar_title, 
+                # --- CORRECTION ICI ---
+                title_side='right' # Remplacé 'titleside' par 'title_side'
+                # --- FIN CORRECTION ---
+            )
         ),
-        line=dict(width=1, color='#0068C9') # Ligne de connexion bleue
+        line=dict(width=1, color='#0068C9')
     ))
 
     # --- 3. Mise en forme de la carte ---
     fig.update_layout(
         title="Carte du Parcours (Colorée par Puissance Estimée)",
         showlegend=False,
-        mapbox_style="open-street-map", # Fond de carte gratuit
+        mapbox_style="open-street-map",
         mapbox=dict(
             center=go.layout.mapbox.Center(lat=center_lat, lon=center_lon),
             zoom=12 
