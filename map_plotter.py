@@ -8,98 +8,89 @@ import streamlit as st
 def create_map_figure(df):
     """
     Crée une carte Scattermapbox du parcours, colorée par la puissance estimée.
-    Utilise la méthode multi-traces pour une ligne colorée (peut être lent).
+    (Version Efficace avec Marqueurs Colorés)
     """
     
     # --- 1. Préparation des données ---
     df_map = df.copy()
     
-    # Vérifier les colonnes GPS
     if 'position_lat' not in df_map.columns or 'position_long' not in df_map.columns:
         st.warning("Données GPS (position_lat/long) non trouvées. Impossible d'afficher la carte.")
-        return go.Figure() # Retourne une figure vide
+        return go.Figure()
 
+    df_map = df_map.dropna(subset=['position_lat', 'position_long'])
+    
+    if df_map.empty:
+        st.warning("Données GPS invalides après nettoyage.")
+        return go.Figure()
+        
     # Vérifier la puissance (colonne de couleur)
-    if 'estimated_power' not in df_map.columns or df_map['estimated_power'].isnull().all():
+    if 'estimated_power' in df_map.columns and not df_map['estimated_power'].isnull().all():
+        df_map['plot_color_val'] = df_map['estimated_power']
+        # Palette 'Jet' (Bleu -> Rouge)
+        color_scale = 'Jet' 
+        show_colorbar = True
+        cmin = df_map['plot_color_val'].min()
+        cmax = df_map['plot_color_val'].max()
+        colorbar_title = 'Puissance (W)'
+        customdata = np.stack((
+            df_map['estimated_power'], 
+            (df_map['speed'] * 3.6).round(1)
+        ), axis=-1)
+        hovertemplate = "<b>Puissance Est:</b> %{customdata[0]:.0f} W<br><b>Vitesse:</b> %{customdata[1]} km/h<extra></extra>"
+    else:
         st.warning("Données de puissance estimée non disponibles pour la carte. Tracé simple.")
         df_map['plot_color_val'] = 0
+        color_scale = 'blues'
         show_colorbar = False
-        colorscale = [[0.0, 'rgb(0,104,201)'], [1.0, 'rgb(0,104,201)']] # Bleu uni
-    else:
-        df_map['plot_color_val'] = df_map['estimated_power']
-        show_colorbar = True
-        # Palette de "chaleur" : Bleu (basse) -> Vert -> Jaune -> Rouge (haute)
-        colorscale = 'Jet' 
-    
-    # Échantillonnage : 1 point toutes les 5 secondes pour la performance
-    # (Tracer chaque seconde est trop lourd pour le navigateur)
+        cmin = 0; cmax = 1; colorbar_title = ''
+        customdata = None
+        hovertemplate = "<b>Vitesse:</b> %{text} km/h<extra></extra>"
+
+    # Échantillonnage : 1 point toutes les 5 secondes
     df_sampled = df_map.iloc[::5, :]
     
     if df_sampled.empty:
         st.warning("Pas assez de données pour tracer la carte.")
         return go.Figure()
         
-    # Définir les seuils de couleur
-    min_color_val = df_sampled['plot_color_val'].min()
-    max_color_val = df_sampled['plot_color_val'].max()
-    range_color = max_color_val - min_color_val
-    # Éviter la division par zéro si la puissance est constante
-    if range_color == 0: range_color = 1.0 
-
     # Trouver le centre de la carte
     center_lat = df_sampled['position_lat'].mean()
     center_lon = df_sampled['position_long'].mean()
 
     fig = go.Figure()
 
-    # --- 2. Création des micro-segments (La seule façon de colorer une ligne) ---
-    # On itère sur chaque segment point par point (de l'échantillon)
-    for i in range(len(df_sampled) - 1):
-        row_start = df_sampled.iloc[i]
-        row_end = df_sampled.iloc[i+1]
-        
-        # Obtenir la valeur de puissance
-        power_val = row_start['plot_color_val']
-        # Normaliser la valeur (0.0 à 1.0)
-        power_norm = (power_val - min_color_val) / range_color
-        
-        # Contourner le bug de sample_colorscale (comme pour les sprints)
-        epsilon = 1e-9
-        power_norm_clamped = max(epsilon, min(1.0 - epsilon, power_norm))
-        
-        # Obtenir la couleur pour ce segment
-        color_rgb_str = plotly.colors.sample_colorscale(colorscale, power_norm_clamped)[0]
-
-        fig.add_trace(go.Scattermapbox(
-            lat=[row_start['position_lat'], row_end['position_lat']],
-            lon=[row_start['position_long'], row_end['position_long']],
-            mode='lines',
-            line=dict(width=3, color=color_rgb_str),
-            name=f"Segment {i}",
-            hovertemplate=f"<b>Puissance Est:</b> {power_val:.0f} W<br>" +
-                          f"<b>Vitesse:</b> {row_start['speed']*3.6:.1f} km/h<br>" +
-                          f"<b>Altitude:</b> {row_start['altitude']:.0f} m<extra></extra>"
-        ))
+    # --- 2. Création d'UNE SEULE Trace ---
+    fig.add_trace(go.Scattermapbox(
+        lat=df_sampled['position_lat'],
+        lon=df_sampled['position_long'],
+        mode='lines+markers', # Ligne + Points
+        customdata=customdata,
+        hovertemplate=hovertemplate,
+        marker=go.scattermapbox.Marker(
+            size=6,
+            color=df_sampled['plot_color_val'], # Couleur basée sur la puissance
+            colorscale=color_scale,
+            cmin=cmin,
+            cmax=cmax,
+            showscale=show_colorbar,
+            colorbar=dict(title=colorbar_title, titleside='right')
+        ),
+        line=dict(width=1, color='#0068C9') # Ligne de connexion bleue
+    ))
 
     # --- 3. Mise en forme de la carte ---
     fig.update_layout(
         title="Carte du Parcours (Colorée par Puissance Estimée)",
-        showlegend=False, # Important pour ne pas avoir 1000+ légendes
+        showlegend=False,
         mapbox_style="open-street-map", # Fond de carte gratuit
         mapbox=dict(
             center=go.layout.mapbox.Center(lat=center_lat, lon=center_lon),
-            zoom=12 # Niveau de zoom initial
+            zoom=12 
         ),
         margin={"r":0, "t":40, "l":0, "b":0},
         height=500,
-        # Ajout manuel de la barre de couleur (si on a de la puissance)
-        coloraxis_showscale=show_colorbar,
-        coloraxis=dict(
-            colorscale=colorscale,
-            cmin=min_color_val,
-            cmax=max_color_val,
-            colorbar=dict(title='Puissance (W)')
-        )
+        hoverlabel=dict(bgcolor="white", bordercolor="#E0E0E0", font=dict(color="#333333"))
     )
     
     return fig
