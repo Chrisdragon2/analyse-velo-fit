@@ -6,6 +6,7 @@ import plotly.colors
 import streamlit as st
 
 # Palette de couleurs (Vert -> Jaune -> Orange -> Rouge -> Noir)
+# Pente de 0% = Vert, 5% = Jaune/Orange, 10% = Rouge, 20%+ = Noir
 PROFILE_COLORSCALE = [
     [0.0, 'rgb(0,128,0)'],   # 0%
     [0.25, 'rgb(255,255,0)'], # 5%
@@ -34,7 +35,10 @@ def create_full_ride_profile(df):
         return go.Figure()
 
     # --- 2. Échantillonnage pour la performance ---
-    df_sampled = df_profile.iloc[::5, :].copy() # 1 point tous les 5 points
+    # Échantillonne pour garder environ 2000-3000 points max pour la performance
+    sampling_rate = max(1, len(df_profile) // 3000)
+    df_sampled = df_profile.iloc[::sampling_rate, :].copy()
+    
     if df_sampled.empty:
         st.warning("Pas assez de données pour le profil après échantillonnage.")
         return go.Figure()
@@ -46,33 +50,34 @@ def create_full_ride_profile(df):
 
     # --- 3. Trace 1: L'Effet d'Ombre (Relief) ---
     fig.add_trace(go.Scatter(
-        x=df_sampled['distance'] + 100,
-        y=df_sampled['altitude'] - 5,
+        x=df_sampled['distance'] + 100, # Décalage léger sur la distance (droite)
+        y=df_sampled['altitude'] - 5,   # Décalage léger sur l'altitude (bas)
         mode='lines',
-        line=dict(width=0, color='rgba(0,0,0,0)'),
-        fill='tozeroy',
-        fillcolor='rgba(0,0,0,0.08)',
+        line=dict(width=0, color='rgba(0,0,0,0)'), # Ligne invisible
+        fill='tozeroy', # Remplissage jusqu'à 0
+        fillcolor='rgba(0,0,0,0.08)', # Ombre gris très légère
         hoverinfo='none',
         showlegend=False
     ))
 
     # --- 4. Trace 2: La Ligne de Profil Principale (colorée par pente) ---
-    CHUNK_DISTANCE_PROFILE = 250
+    # On utilise la méthode "Lignes par Chunks"
+    
+    CHUNK_DISTANCE_PROFILE = 250 # Couleur change tous les 250m
     df_sampled['distance_bin'] = (df_sampled['distance'] // CHUNK_DISTANCE_PROFILE) * CHUNK_DISTANCE_PROFILE
     
     try: grouped = df_sampled.groupby('distance_bin', observed=True)
     except TypeError: grouped = df_sampled.groupby('distance_bin')
         
-    # --- CORRECTION ICI ---
-    # On n'utilise PAS get_colorscale, on utilise la variable directement
     plotly_colorscale = PROFILE_COLORSCALE
-    # --- FIN CORRECTION ---
 
     for name, group in grouped:
         if group.empty: continue
         
         avg_pente = group['pente'].mean()
-        pente_norm_pos = max(0, avg_pente)
+        
+        # Normaliser la pente (de 0% à 20% -> 0.0 à 1.0)
+        pente_norm_pos = max(0, avg_pente) # Ne colore que les pentes positives
         pente_norm = max(0.00001, min(0.99999, (pente_norm_pos / PENTE_ECHELLE_MAX)))
         segment_color_rgb_str = plotly.colors.sample_colorscale(plotly_colorscale, pente_norm)[0]
 
@@ -80,7 +85,7 @@ def create_full_ride_profile(df):
             x=group['distance'],
             y=group['altitude'],
             mode='lines',
-            line=dict(width=3, color=segment_color_rgb_str),
+            line=dict(width=3, color=segment_color_rgb_str), # Ligne épaisse
             hoverinfo='none',
             showlegend=False
         ))
@@ -121,7 +126,7 @@ def create_full_ride_profile(df):
     # --- 6. Mise en Forme ---
     fig.update_layout(
         title="Profil Complet de la Sortie",
-        template="plotly_white",
+        template="plotly_white", # Thème épuré
         xaxis_title="Distance (m)",
         yaxis_title="Altitude (m)",
         hovermode='x unified',
