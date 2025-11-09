@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import plotly.colors
-import io
+import plotly.graph_objects as go 
+import plotly.colors              
+import io 
 
 # --- Importations depuis les modules ---
 try:
@@ -17,9 +17,9 @@ try:
     )
     from plotting import create_climb_figure, create_sprint_figure
     from sprint_detector import detect_sprints
-    from map_plotter import create_map_figure
+    from map_plotter import create_map_figure # Importer la fonction de carte
 except ImportError as e:
-    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
+    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py sont présents. Détail: {e}")
     st.stop()
 
 # --- Fonction simplifiée pour estimer Crr ---
@@ -63,15 +63,14 @@ def main_app():
         with st.expander("3. Montées", expanded=False):
             min_climb_distance = st.slider("Longueur min. (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
-            max_gap_climb = st.slider("Fusion gap (m)", 50, 500, 200, 50, key="climb_gap") # Clé unique
+            max_gap_climb = st.slider("Fusion gap (m)", 50, 500, 200, 50, key="climb_gap")
             chunk_distance_m = st.select_slider("Fenêtre Analyse Pente (m)", options=[100, 200, 500, 1000, 1500, 2000], value=100, key="chunk_distance")
         with st.expander("4. Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse min. (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée min. (s)", 3, 15, 5, 1, key="sprint_duration")
             slope_range_sprint = st.slider("Plage Pente (%)", -10.0, 10.0, (-5.0, 5.0), 0.5, key="sprint_slope_range")
             min_gradient_sprint, max_gradient_sprint = slope_range_sprint
-            # --- CORRECTION : Clé unique pour le slider de gap sprint ---
-            max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist") # Clé unique
+            max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist")
             sprint_rewind_sec = st.slider("Secondes 'Montée en Puissance'", 0, 20, 10, 1, key="sprint_rewind")
 
     # --- AFFICHAGE PRINCIPAL ---
@@ -118,8 +117,8 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS ---
-    tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
+    # --- STRUCTURE PAR ONGLETS (avec icônes) ---
+    tab_summary, tab_climbs, tab_sprints = st.tabs(["📊", "⛰️", "💨"])
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
@@ -128,11 +127,6 @@ def main_app():
         if 'session_data' not in locals(): session_data = {}
             
         try:
-            # Appel de la fonction de résumé (si elle est dans son propre fichier)
-            # S'assurer que summary_processor est importé
-            # summary, summary_error = calculate_global_summary(df, session_data)
-            
-            # --- Pour l'instant, on garde le calcul ici pour la simplicité ---
             st.subheader("Statistiques Clés")
             dist_totale_km = session_data.get('total_distance', df['distance'].iloc[-1]) / 1000
             d_plus = session_data.get('total_ascent', df['altitude'].diff().clip(lower=0).sum())
@@ -147,9 +141,26 @@ def main_app():
             col3.metric("Temps de Déplacement", temps_deplacement_str)
             col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
             
+            # --- MODIFIÉ : Ajout du sélecteur de style de carte ---
             st.subheader("Carte du Parcours")
+            
+            map_style_options = {
+                "Épuré (Clair)": "carto-positron",
+                "Rues": "open-street-map",
+                "Terrain / Satellite": "stamen-terrain" # "Satellite" gratuit
+            }
+            selected_style_name = st.radio(
+                "Style de la carte :", 
+                options=list(map_style_options.keys()), 
+                horizontal=True, 
+                key="map_style"
+            )
+            map_style_id = map_style_options[selected_style_name]
+            # --- FIN MODIFICATION ---
+            
             if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
-                map_fig = create_map_figure(df_analyzed)
+                # On passe le style choisi à la fonction
+                map_fig = create_map_figure(df_analyzed, map_style_id) 
                 st.plotly_chart(map_fig, use_container_width=True)
             else:
                 st.warning("Données GPS (position_lat/position_long) non trouvées. Impossible d'afficher la carte.")
@@ -239,7 +250,6 @@ def main_app():
         if not sprints_df_full.empty:
             for index, sprint_info in sprints_df_full.iterrows():
                 try:
-                    # --- CORRECTION : Utiliser la colonne 'Début' (Timestamp) ---
                     start_timestamp = sprint_info['Début']
                     if not isinstance(start_timestamp, pd.Timestamp): st.warning(f"Format début incorrect sprint {index+1}."); continue
                     try: duration_float = float(sprint_info['Durée (s)'])
@@ -252,7 +262,6 @@ def main_app():
                     elif start_timestamp in df_analyzed.index:
                          df_sprint_segment = df_analyzed.loc[start_timestamp:]
                     else: df_sprint_segment = pd.DataFrame()
-                    # --- FIN CORRECTION ---
 
                     if not df_sprint_segment.empty:
                          fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
@@ -260,8 +269,7 @@ def main_app():
                     else:
                          st.warning(f"Segment vide pour sprint {index+1}.")
                 except KeyError as ke:
-                     # Si 'Début' n'existe pas, c'est que sprint_detector.py n'est pas à jour
-                     st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}. Assurez-vous que 'sprint_detector.py' est à jour (avec la colonne 'Début').")
+                     st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}.")
                      st.exception(ke)
                 except Exception as e:
                     st.error(f"Erreur création graphique sprint {index+1}.")
