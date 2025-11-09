@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go 
-import plotly.colors              
-import io 
+import plotly.graph_objects as go
+import plotly.colors
+import io
 
 # --- Importations depuis les modules ---
 try:
@@ -24,12 +24,14 @@ except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
-# --- (Fonction estimate_crr_from_width ... inchangée) ---
+# --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
-    if width_mm > 25: return base_crr + (width_mm - 25) * additional_crr_per_mm
-    else: return base_crr
+    if width_mm > 25:
+        return base_crr + (width_mm - 25) * additional_crr_per_mm
+    else:
+        return base_crr
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
@@ -40,12 +42,13 @@ def main_app():
         st.session_state.sprint_display_mode = "courbes"
 
     def toggle_sprint_display_mode():
-        if st.session_state.sprint_display_mode == "courbes": st.session_state.sprint_display_mode = "barres"
-        else: st.session_state.sprint_display_mode = "courbes"
+        if st.session_state.sprint_display_mode == "courbes":
+            st.session_state.sprint_display_mode = "barres"
+        else:
+            st.session_state.sprint_display_mode = "courbes"
 
-    # --- INPUT UTILISATEUR (Sidebar - inchangée) ---
+    # --- INPUT UTILISATEUR (Sidebar) ---
     with st.sidebar:
-        # ... (colle ici TOUT le code de ta sidebar avec les expanders) ...
         st.header("1. Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
         with st.expander("2. Physique", expanded=True):
@@ -72,7 +75,6 @@ def main_app():
             max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist")
             sprint_rewind_sec = st.slider("Secondes 'Montée en Puissance'", 0, 20, 10, 1, key="sprint_rewind")
 
-
     # --- AFFICHAGE PRINCIPAL ---
     if uploaded_file is None:
         st.info("Veuillez charger un fichier .fit pour commencer l'analyse.")
@@ -80,7 +82,6 @@ def main_app():
 
     # --- TRAITEMENT DES DONNÉES ---
     with st.spinner("Analyse du fichier en cours..."):
-        # ... (tout le code de traitement est inchangé) ...
         df_analyzed = None; resultats_df = pd.DataFrame(); sprints_df_full = pd.DataFrame()
         analysis_error = None; sprint_error = None; montees_grouped = None; resultats_montées = []
         df, session_data, error_msg = load_and_clean_data(uploaded_file)
@@ -108,7 +109,6 @@ def main_app():
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
-        # ... (code de l'onglet résumé, avec la carte 2D - inchangé) ...
         st.header("Résumé de la Sortie")
         try:
             st.subheader("Statistiques Clés")
@@ -174,7 +174,6 @@ def main_app():
 
     # --- Onglet 3: Montées (index 2 maintenant) ---
     with tab_climbs:
-        # ... (code de l'onglet montées - inchangé) ...
         st.header("Tableau de Bord des Montées")
         if analysis_error: st.error(analysis_error)
         elif resultats_df.empty: st.warning(f"Aucune ascension ({min_climb_distance}m+, {min_pente}%+) trouvée.")
@@ -199,7 +198,6 @@ def main_app():
 
     # --- Onglet 4: Sprints (index 3 maintenant) ---
     with tab_sprints:
-        # ... (code de l'onglet sprints - inchangé) ...
         st.header("Tableau Récapitulatif des Sprints")
         if sprint_error: st.error(sprint_error)
         elif sprints_df_full.empty: st.warning("Aucun sprint détecté.")
