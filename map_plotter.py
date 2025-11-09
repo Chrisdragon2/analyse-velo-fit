@@ -42,7 +42,7 @@ def create_map_figure(df):
 
     # --- 2. NOUVELLE LOGIQUE : Grouper par Chunks de Distance ---
     # Définir la taille du chunk (ex: 250 mètres)
-    CHUNK_DISTANCE_MAP = 250 
+    CHUNK_DISTANCE_MAP = 50 
     
     if 'distance' not in df_map.columns:
         st.error("Colonne 'distance' manquante pour les chunks de carte.")
