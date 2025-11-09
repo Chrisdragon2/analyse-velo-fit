@@ -117,8 +117,8 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS (avec icônes) ---
-    tab_summary, tab_climbs, tab_sprints = st.tabs(["📊", "⛰️", "💨"])
+# --- STRUCTURE PAR ONGLETS (Titres courts) ---
+    tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé", "Montées", "Sprints"])
 
 # --- Onglet 1: Résumé ---
     with tab_summary:
@@ -278,5 +278,6 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
 
