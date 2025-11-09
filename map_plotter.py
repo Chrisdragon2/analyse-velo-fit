@@ -5,10 +5,21 @@ import pandas as pd
 import plotly.colors
 import streamlit as st
 
+# --- On définit la MÊME palette "classique" que pour les montées ---
+CUSTOM_MAP_COLORSCALE = [
+    [0.0, 'rgb(0,128,0)'],   # Vert
+    [0.25, 'rgb(255,255,0)'], # Jaune
+    [0.5, 'rgb(255,165,0)'], # Orange
+    [0.75, 'rgb(255,0,0)'],   # Rouge
+    [1.0, 'rgb(0,0,0)']      # Noir (pour les puissances très élevées)
+]
+# Seuil de puissance max pour la couleur noire (ajuste si besoin)
+PUISSANCE_MAX_ECHELLE = 1000.0 # ex: 1000W = Noir
+
 def create_map_figure(df):
     """
     Crée une carte Scattermapbox (Version Lignes colorées par Chunks)
-    avec une échelle de couleur Vert -> Rouge Sombre.
+    avec la palette personnalisée Vert -> Rouge -> Noir.
     """
     
     # --- 1. Préparation des données ---
@@ -28,13 +39,11 @@ def create_map_figure(df):
     
     if has_power_data:
         df_map['plot_color_val'] = df_map['estimated_power']
-        # --- MODIFIÉ : Échelle de couleur Vert -> Jaune -> Rouge ---
-        colorscale = 'RdYlGn_r' 
-        # --- FIN MODIFICATION ---
-        min_color_val = df_map['plot_color_val'].min()
-        max_color_val = df_map['plot_color_val'].max()
+        colorscale = CUSTOM_MAP_COLORSCALE # Utilise notre palette
+        # Normaliser la puissance sur l'échelle 0-PUISSANCE_MAX_ECHELLE
+        min_color_val = 0
+        max_color_val = PUISSANCE_MAX_ECHELLE
         range_color = max_color_val - min_color_val
-        if range_color == 0: range_color = 1.0
         colorbar_title = 'Puissance (W)'
     else:
         st.warning("Données de puissance estimée non disponibles. Tracé simple.")
@@ -44,7 +53,7 @@ def create_map_figure(df):
         colorbar_title = ''
 
     # --- 2. Grouper par Chunks de Distance ---
-    CHUNK_DISTANCE_MAP = 150 
+    CHUNK_DISTANCE_MAP = 200 
     
     if 'distance' not in df_map.columns:
         st.error("Colonne 'distance' manquante pour les chunks de carte.")
@@ -52,25 +61,23 @@ def create_map_figure(df):
         
     df_map['distance_bin'] = (df_map['distance'] // CHUNK_DISTANCE_MAP) * CHUNK_DISTANCE_MAP
     
-    try:
-        grouped = df_map.groupby('distance_bin', observed=True)
-    except TypeError:
-        grouped = df_map.groupby('distance_bin')
+    try: grouped = df_map.groupby('distance_bin', observed=True)
+    except TypeError: grouped = df_map.groupby('distance_bin')
     
     center_lat = df_map['position_lat'].mean()
     center_lon = df_map['position_long'].mean()
 
     fig = go.Figure()
     
-    plotly_colorscale = plotly.colors.get_colorscale(colorscale)
+    plotly_colorscale = colorscale # Utilise directement notre liste
 
     # --- 3. Créer une trace par CHUNK coloré ---
     for name, group in grouped:
-        if group.empty:
-            continue
+        if group.empty: continue
             
         if has_power_data:
             avg_power = group['plot_color_val'].mean()
+            # Normaliser la puissance sur l'échelle 0-PUISSANCE_MAX_ECHELLE
             power_norm = max(0.00001, min(0.99999, (avg_power - min_color_val) / range_color))
             segment_color_rgb_str = plotly.colors.sample_colorscale(plotly_colorscale, power_norm)[0]
             hovertemplate = f"<b>Puissance Moy:</b> {avg_power:.0f} W<br><b>Distance:</b> {name}m - {name + CHUNK_DISTANCE_MAP}m<extra></extra>"
@@ -94,8 +101,8 @@ def create_map_figure(df):
             mode='markers',
             marker=dict(
                 size=0,
-                color=[min_color_val, max_color_val],
-                colorscale=colorscale, # Utilise la nouvelle échelle
+                color=[min_color_val, max_color_val], # Utilise 0 et 1000W (ou max)
+                colorscale=colorscale,
                 showscale=True,
                 colorbar=dict(title=colorbar_title, title_side='right', len=0.7, thickness=20)
             ),
