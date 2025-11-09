@@ -6,19 +6,18 @@ import plotly.colors
 import streamlit as st
 
 # Palette de couleurs (Vert -> Jaune -> Orange -> Rouge -> Noir)
-# Pente de 0% = Vert, 5% = Jaune/Orange, 10% = Rouge, 20%+ = Noir
 PROFILE_COLORSCALE = [
     [0.0, 'rgb(0,128,0)'],   # 0%
     [0.25, 'rgb(255,255,0)'], # 5%
     [0.5, 'rgb(255,0,0)'],   # 10%
     [1.0, 'rgb(0,0,0)']      # 20%
 ]
-PENTE_ECHELLE_MAX = 20.0 # 20% de pente = couleur max
+PENTE_ECHELLE_MAX = 20.0 
 
 def create_full_ride_profile(df):
     """
-    Crée un profil d'altitude 2D de toute la sortie, "Strava-style".
-    Coloré par la pente, avec un effet d'ombre/relief.
+    Crée un profil d'altitude 2D de toute la sortie, "Strava-style"
+    AVEC l'effet d'ombre/relief.
     """
     
     df_profile = df.copy()
@@ -27,21 +26,18 @@ def create_full_ride_profile(df):
     required_cols = ['distance', 'altitude', 'pente', 'speed']
     if not all(col in df_profile.columns for col in required_cols):
         missing = [col for col in required_cols if col not in df_profile.columns]
-        st.warning(f"Données manquantes ({', '.join(missing)}) pour le profil. Graphique incomplet.")
+        st.warning(f"Données manquantes ({', '.join(missing)}) pour le profil.")
     
     df_profile = df_profile.dropna(subset=['distance', 'altitude', 'pente', 'speed'])
     if df_profile.empty:
-        st.warning("Données invalides pour le profil.")
-        return go.Figure()
+        st.warning("Données invalides pour le profil."); return go.Figure()
 
     # --- 2. Échantillonnage pour la performance ---
-    # Échantillonne pour garder environ 2000-3000 points max pour la performance
     sampling_rate = max(1, len(df_profile) // 3000)
     df_sampled = df_profile.iloc[::sampling_rate, :].copy()
     
     if df_sampled.empty:
-        st.warning("Pas assez de données pour le profil après échantillonnage.")
-        return go.Figure()
+        st.warning("Pas assez de données pour le profil."); return go.Figure()
         
     if 'speed_kmh' not in df_sampled.columns and 'speed' in df_sampled.columns:
          df_sampled['speed_kmh'] = df_sampled['speed'] * 3.6
@@ -49,8 +45,9 @@ def create_full_ride_profile(df):
     fig = go.Figure()
 
     # --- 3. Trace 1: L'Effet d'Ombre (Relief) ---
+    # On la dessine en premier (en arrière-plan)
     fig.add_trace(go.Scatter(
-        x=df_sampled['distance'] + 100, # Décalage léger sur la distance (droite)
+        x=df_sampled['distance'] + 50, # Décalage léger sur la distance (droite)
         y=df_sampled['altitude'] - 5,   # Décalage léger sur l'altitude (bas)
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'), # Ligne invisible
