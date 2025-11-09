@@ -7,7 +7,7 @@ import streamlit as st
 
 def create_map_figure(df):
     """
-    Crée une carte Scattermapbox (Version Efficace avec Ligne + Marqueurs)
+    Crée une carte Scattermapbox (Version Efficace avec L'Effet "Heatmap")
     """
     
     # --- 1. Préparation des données ---
@@ -26,11 +26,12 @@ def create_map_figure(df):
     # Vérifier la puissance (colonne de couleur)
     if 'estimated_power' in df_map.columns and not df_map['estimated_power'].isnull().all():
         df_map['plot_color_val'] = df_map['estimated_power']
-        color_scale = 'Jet' 
+        color_scale = 'Jet' # Palette Bleu -> Rouge (bien pour la puissance)
         show_colorbar = True
         cmin = df_map['plot_color_val'].min()
         cmax = df_map['plot_color_val'].max()
         colorbar_title = 'Puissance (W)'
+        # Préparer les données pour le hover
         customdata = np.stack((
             df_map['estimated_power'], 
             (df_map['speed'] * 3.6).round(1)
@@ -45,12 +46,11 @@ def create_map_figure(df):
         customdata = None
         hovertemplate = "<b>Vitesse:</b> %{text} km/h<extra></extra>"
 
-    # Échantillonnage : 1 point toutes les 5 secondes (assez pour le visuel)
-    df_sampled = df_map.iloc[::5, :]
+    # Échantillonnage : 1 point toutes les 3 secondes (plus dense pour l'effet heatmap)
+    df_sampled = df_map.iloc[::3, :]
     
     if df_sampled.empty:
-        st.warning("Pas assez de données pour tracer la carte.")
-        return go.Figure()
+        st.warning("Pas assez de données pour tracer la carte."); return go.Figure()
         
     # Trouver le centre de la carte
     center_lat = df_sampled['position_lat'].mean()
@@ -58,17 +58,20 @@ def create_map_figure(df):
 
     fig = go.Figure()
 
-    # --- 2. Création d'UNE SEULE Trace (Ligne + Marqueurs) ---
+    # --- 2. Création d'UNE SEULE Trace (Ligne + Marqueurs "Heatmap") ---
     fig.add_trace(go.Scattermapbox(
         lat=df_sampled['position_lat'],
         lon=df_sampled['position_long'],
         mode='lines+markers', # Trace une ligne ET des marqueurs
         customdata=customdata,
         hovertemplate=hovertemplate,
-        text=(df_sampled['speed'] * 3.6).round(1) if customdata is None else None,
+        text=(df_sampled['speed'] * 3.6).round(1) if customdata is None else None, # Fallback pour 'text'
+        
+        # --- MODIFIÉ : Look "Heatmap" ---
         marker=go.scattermapbox.Marker(
-            size=3, # Marqueurs très petits
-            color=df_sampled['plot_color_val'], # Couleur basée sur la puissance
+            size=10,         # Points plus gros
+            opacity=0.6,     # Rendre semi-transparent
+            color=df_sampled['plot_color_val'],
             colorscale=color_scale,
             cmin=cmin,
             cmax=cmax,
@@ -78,14 +81,15 @@ def create_map_figure(df):
                 title_side='right'
             )
         ),
-        line=dict(width=2, color='#AAAAAA') # Ligne de connexion grise et visible
+        line=dict(width=1, color='rgba(0,0,0,0.2)') # Ligne de connexion très subtile
+        # --- FIN MODIFICATION ---
     ))
 
     # --- 3. Mise en forme de la carte ---
     fig.update_layout(
-        title="Carte du Parcours (Colorée par Puissance Estimée)",
+        title="Carte du Parcours (Heatmap de Puissance Estimée)",
         showlegend=False,
-        mapbox_style="open-street-map",
+        mapbox_style="carto-positron", # Style de carte plus épuré (clair)
         mapbox=dict(
             center=go.layout.mapbox.Center(lat=center_lat, lon=center_lon),
             zoom=12 
