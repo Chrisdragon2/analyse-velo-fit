@@ -5,21 +5,11 @@ import pandas as pd
 import plotly.colors
 import streamlit as st
 
-# --- On définit la MÊME palette "classique" que pour les montées ---
-CUSTOM_MAP_COLORSCALE = [
-    [0.0, 'rgb(0,128,0)'],   # Vert
-    [0.25, 'rgb(255,255,0)'], # Jaune
-    [0.5, 'rgb(255,165,0)'], # Orange
-    [0.75, 'rgb(255,0,0)'],   # Rouge
-    [1.0, 'rgb(0,0,0)']      # Noir (pour les puissances très élevées)
-]
-# Seuil de puissance max pour la couleur noire (ajuste si besoin)
-PUISSANCE_MAX_ECHELLE = 1000.0 # ex: 1000W = Noir
-
-def create_map_figure(df):
+# MODIFIÉ : La fonction accepte un style
+def create_map_figure(df, mapbox_style="carto-positron"):
     """
     Crée une carte Scattermapbox (Version Lignes colorées par Chunks)
-    avec la palette personnalisée Vert -> Rouge -> Noir.
+    avec un style de carte sélectionnable.
     """
     
     # --- 1. Préparation des données ---
@@ -35,12 +25,18 @@ def create_map_figure(df):
         st.warning("Données GPS invalides après nettoyage.")
         return go.Figure()
         
+    # Définition de la palette (Vert -> Jaune -> Orange -> Rouge -> Noir)
+    CUSTOM_MAP_COLORSCALE = [
+        [0.0, 'rgb(0,128,0)'], [0.25, 'rgb(255,255,0)'], [0.5, 'rgb(255,165,0)'],
+        [0.75, 'rgb(255,0,0)'], [1.0, 'rgb(0,0,0)']
+    ]
+    PUISSANCE_MAX_ECHELLE = 1000.0 # Seuil pour le noir
+
     has_power_data = 'estimated_power' in df_map.columns and not df_map['estimated_power'].isnull().all()
     
     if has_power_data:
         df_map['plot_color_val'] = df_map['estimated_power']
-        colorscale = CUSTOM_MAP_COLORSCALE # Utilise notre palette
-        # Normaliser la puissance sur l'échelle 0-PUISSANCE_MAX_ECHELLE
+        colorscale = CUSTOM_MAP_COLORSCALE
         min_color_val = 0
         max_color_val = PUISSANCE_MAX_ECHELLE
         range_color = max_color_val - min_color_val
@@ -53,7 +49,7 @@ def create_map_figure(df):
         colorbar_title = ''
 
     # --- 2. Grouper par Chunks de Distance ---
-    CHUNK_DISTANCE_MAP = 150 
+    CHUNK_DISTANCE_MAP = 250 
     
     if 'distance' not in df_map.columns:
         st.error("Colonne 'distance' manquante pour les chunks de carte.")
@@ -69,7 +65,7 @@ def create_map_figure(df):
 
     fig = go.Figure()
     
-    plotly_colorscale = colorscale # Utilise directement notre liste
+    plotly_colorscale = colorscale
 
     # --- 3. Créer une trace par CHUNK coloré ---
     for name, group in grouped:
@@ -77,7 +73,6 @@ def create_map_figure(df):
             
         if has_power_data:
             avg_power = group['plot_color_val'].mean()
-            # Normaliser la puissance sur l'échelle 0-PUISSANCE_MAX_ECHELLE
             power_norm = max(0.00001, min(0.99999, (avg_power - min_color_val) / range_color))
             segment_color_rgb_str = plotly.colors.sample_colorscale(plotly_colorscale, power_norm)[0]
             hovertemplate = f"<b>Puissance Moy:</b> {avg_power:.0f} W<br><b>Distance:</b> {name}m - {name + CHUNK_DISTANCE_MAP}m<extra></extra>"
@@ -101,7 +96,7 @@ def create_map_figure(df):
             mode='markers',
             marker=dict(
                 size=0,
-                color=[min_color_val, max_color_val], # Utilise 0 et 1000W (ou max)
+                color=[min_color_val, max_color_val],
                 colorscale=colorscale,
                 showscale=True,
                 colorbar=dict(title=colorbar_title, title_side='right', len=0.7, thickness=20)
@@ -113,7 +108,8 @@ def create_map_figure(df):
     fig.update_layout(
         title="Carte du Parcours (Lignes colorées par Puissance Moyenne)",
         showlegend=False,
-        mapbox_style="carto-positron",
+        # --- MODIFIÉ : Utilise le style de carte passé en argument ---
+        mapbox_style=mapbox_style,
         mapbox=dict(
             center=go.layout.mapbox.Center(lat=center_lat, lon=center_lon),
             zoom=12 
