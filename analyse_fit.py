@@ -120,7 +120,7 @@ def main_app():
     # --- STRUCTURE PAR ONGLETS (avec icônes) ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["📊", "⛰️", "💨"])
 
-    # --- Onglet 1: Résumé ---
+# --- Onglet 1: Résumé ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         
@@ -128,26 +128,26 @@ def main_app():
             
         try:
             st.subheader("Statistiques Clés")
+            # ... (code des 4 colonnes de métriques - inchangé) ...
             dist_totale_km = session_data.get('total_distance', df['distance'].iloc[-1]) / 1000
             d_plus = session_data.get('total_ascent', df['altitude'].diff().clip(lower=0).sum())
             temps_deplacement_sec = session_data.get('total_moving_time', len(df[df['speed'] > 1.0]))
             temps_deplacement_str = str(pd.to_timedelta(temps_deplacement_sec, unit='s')).split(' ')[-1].split('.')[0]
             v_moy_session = session_data.get('avg_speed', 0) 
             vitesse_moy_kmh = (v_moy_session * 3.6) if v_moy_session > 0 else ((dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0)
-
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             col3.metric("Temps de Déplacement", temps_deplacement_str)
             col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
             
-            # --- MODIFIÉ : Ajout du sélecteur de style de carte ---
+            # --- MODIFIÉ : "Satellite (ESRI)" ajouté ---
             st.subheader("Carte du Parcours")
             
             map_style_options = {
                 "Épuré (Clair)": "carto-positron",
                 "Rues": "open-street-map",
-                "Terrain / Satellite": "stamen-terrain" # "Satellite" gratuit
+                "Satellite (ESRI)": "satellite_esri" # Remplacement de "Terrain"
             }
             selected_style_name = st.radio(
                 "Style de la carte :", 
@@ -159,12 +159,12 @@ def main_app():
             # --- FIN MODIFICATION ---
             
             if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
-                # On passe le style choisi à la fonction
                 map_fig = create_map_figure(df_analyzed, map_style_id) 
                 st.plotly_chart(map_fig, use_container_width=True)
             else:
-                st.warning("Données GPS (position_lat/position_long) non trouvées. Impossible d'afficher la carte.")
+                st.warning("Données GPS (position_lat/position_long) non trouvées dans le fichier. Impossible d'afficher la carte.")
             
+            # ... (Reste du code de l'onglet résumé : Stats Secondaires, Puissance Estimée) ...
             st.subheader("Statistiques Secondaires")
             v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
             avg_hr = session_data.get('avg_heart_rate')
@@ -196,7 +196,6 @@ def main_app():
 
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
-
     # --- Onglet 2: Montées ---
     with tab_climbs:
         st.header("Tableau de Bord des Montées")
@@ -280,3 +279,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
