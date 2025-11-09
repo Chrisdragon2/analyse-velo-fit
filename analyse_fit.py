@@ -1,14 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go 
-import plotly.colors              
-import io 
+import plotly.graph_objects as go
+import plotly.colors
+import io
 
 # --- Importations depuis les modules ---
 try:
     from data_loader import load_and_clean_data
-    from summary_processor import calculate_global_summary
     from power_estimator import estimate_power
     from climb_processing import (
         calculate_derivatives,
@@ -17,10 +16,10 @@ try:
         calculate_climb_summary
     )
     from plotting import create_climb_figure, create_sprint_figure
-    from map_plotter import create_map_figure
     from sprint_detector import detect_sprints
+    from map_plotter import create_map_figure
 except ImportError as e:
-    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py sont présents. Détail: {e}")
+    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
 # --- Fonction simplifiée pour estimer Crr ---
@@ -64,14 +63,15 @@ def main_app():
         with st.expander("3. Montées", expanded=False):
             min_climb_distance = st.slider("Longueur min. (m)", 100, 1000, 400, 50, key="climb_dist")
             min_pente = st.slider("Pente min. (%)", 1.0, 5.0, 3.0, 0.5, key="climb_pente")
-            max_gap_climb = st.slider("Fusion gap (m)", 50, 500, 200, 50, key="climb_gap")
+            max_gap_climb = st.slider("Fusion gap (m)", 50, 500, 200, 50, key="climb_gap") # Clé unique
             chunk_distance_m = st.select_slider("Fenêtre Analyse Pente (m)", options=[100, 200, 500, 1000, 1500, 2000], value=100, key="chunk_distance")
         with st.expander("4. Sprints", expanded=False):
             min_peak_speed_sprint = st.slider("Vitesse min. (km/h)", 25.0, 60.0, 40.0, 1.0, key="sprint_speed")
             min_sprint_duration = st.slider("Durée min. (s)", 3, 15, 5, 1, key="sprint_duration")
             slope_range_sprint = st.slider("Plage Pente (%)", -10.0, 10.0, (-5.0, 5.0), 0.5, key="sprint_slope_range")
             min_gradient_sprint, max_gradient_sprint = slope_range_sprint
-            max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist")
+            # --- CORRECTION : Clé unique pour le slider de gap sprint ---
+            max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist") # Clé unique
             sprint_rewind_sec = st.slider("Secondes 'Montée en Puissance'", 0, 20, 10, 1, key="sprint_rewind")
 
     # --- AFFICHAGE PRINCIPAL ---
@@ -85,7 +85,6 @@ def main_app():
         analysis_error = None; sprint_error = None; montees_grouped = None; resultats_montées = []
         
         try:
-            # --- MODIFIÉ : Récupérer df ET session_data ---
             df, session_data, error_msg = load_and_clean_data(uploaded_file)
             if df is None: st.error(f"Erreur chargement : {error_msg}"); st.stop()
             
@@ -122,55 +121,40 @@ def main_app():
     # --- STRUCTURE PAR ONGLETS ---
     tab_summary, tab_climbs, tab_sprints = st.tabs(["Résumé Global", "Analyse des Montées", "Analyse des Sprints"])
 
-  # --- Onglet 1: Résumé (Ajout du choix de carte) ---
+    # --- Onglet 1: Résumé ---
     with tab_summary:
         st.header("Résumé de la Sortie")
         
         if 'session_data' not in locals(): session_data = {}
             
         try:
+            # Appel de la fonction de résumé (si elle est dans son propre fichier)
+            # S'assurer que summary_processor est importé
+            # summary, summary_error = calculate_global_summary(df, session_data)
+            
+            # --- Pour l'instant, on garde le calcul ici pour la simplicité ---
             st.subheader("Statistiques Clés")
-            # ... (code des 4 colonnes de métriques - inchangé) ...
             dist_totale_km = session_data.get('total_distance', df['distance'].iloc[-1]) / 1000
             d_plus = session_data.get('total_ascent', df['altitude'].diff().clip(lower=0).sum())
             temps_deplacement_sec = session_data.get('total_moving_time', len(df[df['speed'] > 1.0]))
             temps_deplacement_str = str(pd.to_timedelta(temps_deplacement_sec, unit='s')).split(' ')[-1].split('.')[0]
             v_moy_session = session_data.get('avg_speed', 0) 
             vitesse_moy_kmh = (v_moy_session * 3.6) if v_moy_session > 0 else ((dist_totale_km * 1000 / temps_deplacement_sec) * 3.6 if temps_deplacement_sec > 0 else 0)
+
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             col3.metric("Temps de Déplacement", temps_deplacement_str)
             col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
             
-            # --- NOUVEAU : Choix du style de carte ---
             st.subheader("Carte du Parcours")
-            
-            map_style_options = {
-                "Épuré": "carto-positron",
-                "Rues": "open-street-map",
-                "Terrain": "stamen-terrain" # "Satellite" gratuit
-            }
-            # Utiliser 'horizontal=True' pour un look plus compact
-            selected_style_name = st.radio(
-                "Style de la carte :", 
-                options=list(map_style_options.keys()), 
-                horizontal=True, 
-                key="map_style"
-            )
-            map_style_id = map_style_options[selected_style_name]
-            # --- FIN NOUVEAU ---
-
             if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
-                # On passe le style choisi à la fonction
-                map_fig = create_map_figure(df_analyzed, map_style_id) 
+                map_fig = create_map_figure(df_analyzed)
                 st.plotly_chart(map_fig, use_container_width=True)
             else:
-                st.warning("Données GPS (position_lat/position_long) non trouvées dans le fichier. Impossible d'afficher la carte.")
+                st.warning("Données GPS (position_lat/position_long) non trouvées. Impossible d'afficher la carte.")
             
-            # --- Stats Secondaires et Puissance (inchangées) ---
             st.subheader("Statistiques Secondaires")
-            # ... (le reste du code de l'onglet résumé) ...
             v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
             avg_hr = session_data.get('avg_heart_rate')
             max_hr = session_data.get('max_heart_rate')
@@ -201,7 +185,7 @@ def main_app():
 
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
-            
+
     # --- Onglet 2: Montées ---
     with tab_climbs:
         st.header("Tableau de Bord des Montées")
@@ -255,6 +239,7 @@ def main_app():
         if not sprints_df_full.empty:
             for index, sprint_info in sprints_df_full.iterrows():
                 try:
+                    # --- CORRECTION : Utiliser la colonne 'Début' (Timestamp) ---
                     start_timestamp = sprint_info['Début']
                     if not isinstance(start_timestamp, pd.Timestamp): st.warning(f"Format début incorrect sprint {index+1}."); continue
                     try: duration_float = float(sprint_info['Durée (s)'])
@@ -267,25 +252,23 @@ def main_app():
                     elif start_timestamp in df_analyzed.index:
                          df_sprint_segment = df_analyzed.loc[start_timestamp:]
                     else: df_sprint_segment = pd.DataFrame()
+                    # --- FIN CORRECTION ---
 
                     if not df_sprint_segment.empty:
                          fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
                          st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else:
                          st.warning(f"Segment vide pour sprint {index+1}.")
-                except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(ke)
+                except KeyError as ke:
+                     # Si 'Début' n'existe pas, c'est que sprint_detector.py n'est pas à jour
+                     st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}. Assurez-vous que 'sprint_detector.py' est à jour (avec la colonne 'Début').")
+                     st.exception(ke)
                 except Exception as e:
-                    st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
+                    st.error(f"Erreur création graphique sprint {index+1}.")
+                    st.exception(e)
         elif not sprint_error:
             st.info("Aucun profil de sprint à afficher.")
 
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
-
-
-
-
-
-
