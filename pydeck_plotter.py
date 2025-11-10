@@ -79,7 +79,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         'PathLayer',
         data=path_data_main,
         pickable=True,
-        get_color=[255, 69, 0, 255], # Orange vif
+        get_color=[255, 255, 255, 255], 
         width_scale=1,
         width_min_pixels=3,
         get_path='path',
