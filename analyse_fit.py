@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go 
 import plotly.colors              
 import io 
-import pydeck as pdk # <-- AJOUTER CECI
+import pydeck as pdk # Importe pydeck
 
 # --- Importations depuis les modules ---
 try:
@@ -19,20 +19,18 @@ try:
     from plotting import create_climb_figure, create_sprint_figure
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
-    # from profile_plotter import create_full_ride_profile # <-- SUPPRIMER/COMMENTER
-    from pydeck_plotter import create_pydeck_chart # <-- AJOUTER CECI
+    from profile_plotter import create_full_ride_profile
+    from pydeck_plotter import create_pydeck_chart # Import de la nouvelle fonction
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
-# --- Fonction simplifiée pour estimer Crr ---
+# --- (Fonction estimate_crr_from_width ... inchangée) ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
-    if width_mm > 25:
-        return base_crr + (width_mm - 25) * additional_crr_per_mm
-    else:
-        return base_crr
+    if width_mm > 25: return base_crr + (width_mm - 25) * additional_crr_per_mm
+    else: return base_crr
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
@@ -43,12 +41,10 @@ def main_app():
         st.session_state.sprint_display_mode = "courbes"
 
     def toggle_sprint_display_mode():
-        if st.session_state.sprint_display_mode == "courbes":
-            st.session_state.sprint_display_mode = "barres"
-        else:
-            st.session_state.sprint_display_mode = "courbes"
+        if st.session_state.sprint_display_mode == "courbes": st.session_state.sprint_display_mode = "barres"
+        else: st.session_state.sprint_display_mode = "courbes"
 
-    # --- INPUT UTILISATEUR (Sidebar) ---
+    # --- INPUT UTILISATEUR (Sidebar - inchangée) ---
     with st.sidebar:
         st.header("1. Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
@@ -105,8 +101,8 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-# --- MODIFIÉ : STRUCTURE PAR ONGLETS ---
-    tab_summary, tab_map_3d, tab_climbs, tab_sprints = st.tabs(["Résumé", "Carte 3D", "Montées", "Sprints"])
+    # --- MODIFIÉ : STRUCTURE PAR ONGLETS (Ajout Carte 3D) ---
+    tab_summary, tab_profile, tab_climbs, tab_sprints, tab_3d_map = st.tabs(["Résumé", "Profil 2D", "Montées", "Sprints", "Carte 3D"])
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
@@ -157,30 +153,22 @@ def main_app():
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
 
-# --- Onglet 2: Carte 3D (Pydeck) ---
-    with tab_map_3d:
-        st.header("Carte 3D (Pydeck)")
-        st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
+    # --- Onglet 2: Profil 2D Complet ---
+    with tab_profile:
+        st.header("Profil Complet de la Sortie")
+        st.info("Survolez le graphique pour voir les détails (pente, vitesse, puissance) à chaque point.")
         
-        if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
+        if 'df_analyzed' in locals() and not df_analyzed.empty:
             try:
-                # Appeler la nouvelle fonction de traçage Pydeck
-                pydeck_chart = create_pydeck_chart(df_analyzed)
-                
-                if pydeck_chart:
-                    # Afficher la carte Pydeck
-                    st.pydeck_chart(pydeck_chart, use_container_width=True)
-                else:
-                    # Gérer le cas où create_pydeck_chart retourne None (ex: données vides)
-                    st.warning("Impossible de générer la carte 3D (données invalides après traitement).")
-                    
+                fig_profile = create_full_ride_profile(df_analyzed)
+                st.plotly_chart(fig_profile, use_container_width=True)
             except Exception as e:
-                st.error(f"Erreur lors de la création de la carte 3D Pydeck : {e}")
+                st.error(f"Erreur lors de la création du profil complet : {e}")
                 st.exception(e)
         else:
-            st.warning("Données GPS (position_lat/long) non trouvées dans le fichier pour afficher la carte 3D.")
+            st.warning("Données analysées non disponibles pour afficher le profil.")
 
-    # --- Onglet 3: Montées (index 2 maintenant) ---
+    # --- Onglet 3: Montées ---
     with tab_climbs:
         st.header("Tableau de Bord des Montées")
         if analysis_error: st.error(analysis_error)
@@ -204,7 +192,7 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique ascension {index_resultat+1}."); st.exception(e)
         elif not analysis_error: st.info("Aucun profil de montée à afficher.")
 
-    # --- Onglet 4: Sprints (index 3 maintenant) ---
+    # --- Onglet 4: Sprints ---
     with tab_sprints:
         st.header("Tableau Récapitulatif des Sprints")
         if sprint_error: st.error(sprint_error)
@@ -238,8 +226,54 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
+    # --- NOUVEL ONGLET : Carte 3D (Pydeck) ---
+    with tab_3d_map:
+        st.header("Carte 3D (Pydeck)")
+        
+        # --- AJOUT DES CASES À COCHER ---
+        col1, col2 = st.columns(2)
+        with col1:
+            show_climbs = st.checkbox("Afficher les Montées (Rouge)", value=True, key="3d_climbs")
+        with col2:
+            show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
+        st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
+        # --- FIN AJOUT ---
+
+        if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
+            
+            # --- Préparation des données pour les highlights ---
+            climb_segments_to_plot = []
+            if show_climbs and montees_grouped is not None:
+                for index, (nom_bloc, segment_data) in enumerate(montees_grouped.groups.items()):
+                     if index < len(resultats_montées): # Ne surligne que les montées valides
+                        climb_segments_to_plot.append(segment_data)
+
+            sprint_segments_to_plot = []
+            if show_sprints and not sprints_df_full.empty:
+                for index, sprint_info in sprints_df_full.iterrows():
+                    try:
+                        start_time = sprint_info['Début']
+                        duration = float(sprint_info['Durée (s)'])
+                        end_time = start_time + pd.Timedelta(seconds=duration)
+                        segment_data = df_analyzed.loc[start_time:end_time]
+                        sprint_segments_to_plot.append(segment_data)
+                    except Exception:
+                        pass # Ignorer les erreurs d'extraction de segment ici
+            # --- Fin préparation ---
+
+            try:
+                # --- MODIFIÉ : On passe les listes de segments ---
+                pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
+                
+                if pydeck_chart:
+                    st.pydeck_chart(pydeck_chart, use_container_width=True)
+                else:
+                    st.warning("Impossible de générer la carte 3D.")
+            except Exception as e:
+                st.error(f"Erreur Pydeck : {e}")
+        else:
+            st.warning("Données GPS (position_lat/long) non trouvées.")
 
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
