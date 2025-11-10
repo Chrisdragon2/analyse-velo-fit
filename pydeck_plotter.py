@@ -37,8 +37,11 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     # Couche 2: Segments de Montée (Rouge)
     path_data_climbs = []
     for segment in climb_segments:
-        if not segment.empty and all(col in segment.columns for col in ['position_long', 'position_lat', 'altitude']):
-            seg_renamed = segment.rename(columns={"position_lat": "lat", "position_long": "lon"})
+        # Échantillonner les segments longs pour la performance
+        sampling_rate_seg = max(1, len(segment) // 500) # Max 500 pts par segment
+        segment_sampled = segment.iloc[::sampling_rate_seg, :]
+        if not segment_sampled.empty and all(col in segment_sampled.columns for col in ['position_long', 'position_lat', 'altitude']):
+            seg_renamed = segment_sampled.rename(columns={"position_lat": "lat", "position_long": "lon"})
             path_data_climbs.append({
                 "path": seg_renamed[['lon', 'lat', 'altitude']].values.tolist(),
                 "name": "Montée"
@@ -47,8 +50,11 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     # Couche 3: Segments de Sprint (Cyan)
     path_data_sprints = []
     for segment in sprint_segments:
-        if not segment.empty and all(col in segment.columns for col in ['position_long', 'position_lat', 'altitude']):
-            seg_renamed = segment.rename(columns={"position_lat": "lat", "position_long": "lon"})
+        # Échantillonner les segments longs
+        sampling_rate_seg = max(1, len(segment) // 500)
+        segment_sampled = segment.iloc[::sampling_rate_seg, :]
+        if not segment_sampled.empty and all(col in segment_sampled.columns for col in ['position_long', 'position_lat', 'altitude']):
+            seg_renamed = segment_sampled.rename(columns={"position_lat": "lat", "position_long": "lon"})
             path_data_sprints.append({
                 "path": seg_renamed[['lon', 'lat', 'altitude']].values.tolist(),
                 "name": "Sprint"
@@ -78,6 +84,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         width_min_pixels=3,
         get_path='path',
         get_width=5,
+        tooltip={"text": "{name}"}
     )
     
     # Couche 2: Montées (Rouge, plus large)
@@ -90,6 +97,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         width_min_pixels=6, # Plus épais pour surligner
         get_path='path',
         get_width=5,
+        tooltip={"text": "{name}"}
     )
     
     # Couche 3: Sprints (Cyan, plus large)
@@ -102,6 +110,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         width_min_pixels=6, # Plus épais pour surligner
         get_path='path',
         get_width=5,
+        tooltip={"text": "{name}"}
     )
 
     # --- 6. Création de la carte Pydeck ---
@@ -112,8 +121,8 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
             layer_sprints   # Sprints par-dessus
         ],
         initial_view_state=initial_view_state,
-        map_style=pdk.map_styles.DARK, 
-        tooltip={"text": "{name}"}
+        map_style=pdk.map_styles.DARK
+        # Le Tooltip est maintenant défini dans chaque couche
     )
     
     return deck
