@@ -7,7 +7,7 @@ import numpy as np
 def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
     Crée une carte 3D inclinée de la trace GPS en utilisant Pydeck
-    AVEC surbrillance des montées (rouge) et des sprints (cyan).
+    AVEC surbrillance (Montées en ROUGE, Sprints en CYAN).
     """
     
     # --- 1. Vérification des données ---
@@ -29,7 +29,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     # --- 3. Préparation des données pour les couches ---
     
-    # Couche 1: Trace Principale (Orange)
+    # Couche 1: Trace Principale (Blanche/Grise)
     path_data_main = [
         {"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}
     ]
@@ -37,8 +37,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     # Couche 2: Segments de Montée (Rouge)
     path_data_climbs = []
     for segment in climb_segments:
-        # Échantillonner les segments longs pour la performance
-        sampling_rate_seg = max(1, len(segment) // 500) # Max 500 pts par segment
+        sampling_rate_seg = max(1, len(segment) // 500)
         segment_sampled = segment.iloc[::sampling_rate_seg, :]
         if not segment_sampled.empty and all(col in segment_sampled.columns for col in ['position_long', 'position_lat', 'altitude']):
             seg_renamed = segment_sampled.rename(columns={"position_lat": "lat", "position_long": "lon"})
@@ -50,7 +49,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     # Couche 3: Segments de Sprint (Cyan)
     path_data_sprints = []
     for segment in sprint_segments:
-        # Échantillonner les segments longs
         sampling_rate_seg = max(1, len(segment) // 500)
         segment_sampled = segment.iloc[::sampling_rate_seg, :]
         if not segment_sampled.empty and all(col in segment_sampled.columns for col in ['position_long', 'position_lat', 'altitude']):
@@ -68,20 +66,20 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         latitude=mid_lat,
         longitude=mid_lon,
         zoom=11,
-        pitch=45, # Vue 3D Inclinée
+        pitch=45,
         bearing=0
     )
 
     # --- 5. Définition des Couches (Layers) ---
     
-    # Couche 1: Trace Principale (Orange)
+    # Couche 1: Trace Principale (Couleur neutre)
     layer_main = pdk.Layer(
         'PathLayer',
         data=path_data_main,
         pickable=True,
-        get_color=[255, 255, 255, 255], 
+        get_color=[255, 255, 255, 80], # Blanc, semi-transparent (ou [100, 100, 100, 80] pour du gris)
         width_scale=1,
-        width_min_pixels=3,
+        width_min_pixels=2, # Ligne fine
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
@@ -94,7 +92,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         pickable=True,
         get_color=[255, 0, 0, 255], # Rouge vif
         width_scale=1,
-        width_min_pixels=6, # Plus épais pour surligner
+        width_min_pixels=5, # Plus épais pour surligner
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
@@ -107,22 +105,21 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         pickable=True,
         get_color=[0, 255, 255, 255], # Cyan vif
         width_scale=1,
-        width_min_pixels=6, # Plus épais pour surligner
+        width_min_pixels=5, # Plus épais pour surligner
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
     )
 
-    # --- 6. Création de la carte Pydeck ---
+    # --- 6. Création de la carte Pydeck (Ordre Corrigé) ---
     deck = pdk.Deck(
         layers=[
-            layer_main,     # Trace de base
-            layer_climbs,   # Montées par-dessus
-            layer_sprints   # Sprints par-dessus
+            layer_main,     # 1. Trace de base (en dessous)
+            layer_climbs,   # 2. Montées (au-dessus)
+            layer_sprints   # 3. Sprints (tout au-dessus)
         ],
         initial_view_state=initial_view_state,
         map_style=pdk.map_styles.DARK
-        # Le Tooltip est maintenant défini dans chaque couche
     )
     
     return deck
