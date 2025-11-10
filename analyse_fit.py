@@ -25,7 +25,7 @@ except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
-# --- (Fonction estimate_crr_from_width ... inchangée) ---
+# --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
@@ -101,7 +101,7 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- MODIFIÉ : STRUCTURE PAR ONGLETS (Ajout Carte 3D) ---
+    # --- STRUCTURE PAR ONGLETS (avec Carte 3D) ---
     tab_summary, tab_profile, tab_climbs, tab_sprints, tab_3d_map = st.tabs(["Résumé", "Profil 2D", "Montées", "Sprints", "Carte 3D"])
 
     # --- Onglet 1: Résumé ---
@@ -226,40 +226,36 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
-# --- NOUVEL ONGLET : Carte 3D (Pydeck) ---
+    # --- Onglet 5: Carte 3D (Pydeck) ---
     with tab_3d_map:
         st.header("Carte 3D (Pydeck)")
         
+        # --- AJOUT DES CASES À COCHER ---
         col1, col2 = st.columns(2)
         with col1:
             show_climbs = st.checkbox("Afficher les Montées (Rouge)", value=True, key="3d_climbs")
         with col2:
             show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
         st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
+        # --- FIN AJOUT ---
 
         if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
-            # --- CORRECTION : Récupérer les BONS segments (DataFrames) ---
-            
-            # 1. Récupérer les segments de Montée (DataFrames)
+            # --- Préparation des données pour les highlights ---
             climb_segments_to_plot = []
             if show_climbs and montees_grouped is not None:
                 processed_results_count = 0
                 montee_ids = list(montees_grouped.groups.keys())
                 for nom_bloc in montee_ids:
-                     # On utilise get_group pour récupérer le DataFrame
-                     segment = montees_grouped.get_group(nom_bloc) 
-                     
+                     segment = montees_grouped.get_group(nom_bloc)
                      if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
                      distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
-                     
                      if distance_segment >= min_climb_distance:
                          if processed_results_count < len(resultats_montées):
                             climb_segments_to_plot.append(segment) # On ajoute le DataFrame
                             processed_results_count += 1
-                         else: break
+                         else: break # Assez de montées trouvées
 
-            # 2. Récupérer les segments de Sprint (DataFrames)
             sprint_segments_to_plot = []
             if show_sprints and not sprints_df_full.empty:
                 for index, sprint_info in sprints_df_full.iterrows():
@@ -270,11 +266,11 @@ def main_app():
                         segment_data = df_analyzed.loc[start_time:end_time]
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
-                        pass
-            # --- FIN CORRECTION ---
+                        pass # Ignorer les erreurs d'extraction
+            # --- Fin préparation ---
 
             try:
-                # L'appel est maintenant correct
+                # On passe les listes de segments à la fonction
                 pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
                 if pydeck_chart:
@@ -286,7 +282,7 @@ def main_app():
         else:
             st.warning("Données GPS (position_lat/long) non trouvées.")
 
+
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
