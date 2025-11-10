@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import plotly.colors
-import io
+import plotly.graph_objects as go 
+import plotly.colors              
+import io 
+import pydeck as pdk # <-- AJOUTER CECI
 
 # --- Importations depuis les modules ---
 try:
@@ -18,8 +19,8 @@ try:
     from plotting import create_climb_figure, create_sprint_figure
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
-    # NOUVEAU : Import de la fonction de profil
-    from profile_plotter import create_full_ride_profile 
+    # from profile_plotter import create_full_ride_profile # <-- SUPPRIMER/COMMENTER
+    from pydeck_plotter import create_pydeck_chart # <-- AJOUTER CECI
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
@@ -104,8 +105,8 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- MODIFIÉ : STRUCTURE PAR ONGLETS (Remplacement de Carte 3D) ---
-    tab_summary, tab_profile, tab_climbs, tab_sprints = st.tabs(["Résumé", "Profil Complet", "Montées", "Sprints"])
+# --- MODIFIÉ : STRUCTURE PAR ONGLETS ---
+    tab_summary, tab_map_3d, tab_climbs, tab_sprints = st.tabs(["Résumé", "Carte 3D", "Montées", "Sprints"])
 
     # --- Onglet 1: Résumé ---
     with tab_summary:
@@ -156,21 +157,28 @@ def main_app():
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
 
-    # --- NOUVEL ONGLET : Profil 2D Complet ---
-    with tab_profile:
-        st.header("Profil Complet de la Sortie")
-        st.info("Survolez le graphique pour voir les détails (pente, vitesse, puissance) à chaque point.")
+# --- Onglet 2: Carte 3D (Pydeck) ---
+    with tab_map_3d:
+        st.header("Carte 3D (Pydeck)")
+        st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
         
-        if 'df_analyzed' in locals() and not df_analyzed.empty:
+        if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             try:
-                # Appeler la nouvelle fonction de traçage de profil
-                fig_profile = create_full_ride_profile(df_analyzed)
-                st.plotly_chart(fig_profile, use_container_width=True)
+                # Appeler la nouvelle fonction de traçage Pydeck
+                pydeck_chart = create_pydeck_chart(df_analyzed)
+                
+                if pydeck_chart:
+                    # Afficher la carte Pydeck
+                    st.pydeck_chart(pydeck_chart, use_container_width=True)
+                else:
+                    # Gérer le cas où create_pydeck_chart retourne None (ex: données vides)
+                    st.warning("Impossible de générer la carte 3D (données invalides après traitement).")
+                    
             except Exception as e:
-                st.error(f"Erreur lors de la création du profil complet : {e}")
+                st.error(f"Erreur lors de la création de la carte 3D Pydeck : {e}")
                 st.exception(e)
         else:
-            st.warning("Données analysées non disponibles pour afficher le profil.")
+            st.warning("Données GPS (position_lat/long) non trouvées dans le fichier pour afficher la carte 3D.")
 
     # --- Onglet 3: Montées (index 2 maintenant) ---
     with tab_climbs:
@@ -234,3 +242,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
