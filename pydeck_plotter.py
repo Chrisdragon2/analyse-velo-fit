@@ -77,7 +77,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         'PathLayer',
         data=path_data_main,
         pickable=True,
-        get_color=[255, 255, 255, 80], # Blanc, semi-transparent (ou [100, 100, 100, 80] pour du gris)
+        get_color=[80, 25, 55, 80], # Blanc, semi-transparent (ou [100, 100, 100, 80] pour du gris)
         width_scale=1,
         width_min_pixels=2, # Ligne fine
         get_path='path',
