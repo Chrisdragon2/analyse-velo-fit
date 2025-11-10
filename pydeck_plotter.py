@@ -66,7 +66,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         latitude=mid_lat,
         longitude=mid_lon,
         zoom=11,
-        pitch=45,
+        pitch=60,
         bearing=0
     )
 
