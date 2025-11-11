@@ -4,10 +4,11 @@ import numpy as np
 import plotly.graph_objects as go 
 import plotly.colors              
 import io 
-import pydeck as pdk # Importe pydeck
+import pydeck as pdk
 
 # --- Importations depuis les modules ---
 try:
+    # TOUT DOIT ÊTRE ALIGNÉ À GAUCHE
     from data_loader import load_and_clean_data
     from power_estimator import estimate_power
     from climb_processing import (
@@ -20,9 +21,9 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
-    from pydeck_plotter import create_pydeck_chart # Import de la nouvelle fonction
+    from pydeck_plotter import create_pydeck_chart
 except ImportError as e:
-    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
+    st.error(f"Erreur d'importation: {e}")
     st.stop()
 
 # --- Fonction simplifiée pour estimer Crr ---
@@ -286,3 +287,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
