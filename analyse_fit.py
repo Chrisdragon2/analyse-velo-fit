@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.colors              
 import io 
 import pydeck as pdk # Importe pydeck
+import streamlit.components.v1 as components
 
 # --- Importations depuis les modules ---
 try:
@@ -271,20 +272,27 @@ def main_app():
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
                         pass
-            
             try:
-                # Appel avec les 3 arguments
-                pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
+                # On récupère l'objet Deck comme avant
+                pydeck_deck_object = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
-                if pydeck_chart:
-                    st.pydeck_chart(pydeck_chart, use_container_width=True)
+                if pydeck_deck_object:
+                    
+                    # --- SOLUTION DE CONTOURNEMENT (Sec V.A) ---
+                    
+                    # 1. Convertir l'objet Deck en HTML brut
+                    deck_html = pydeck_deck_object.to_html(
+                        as_string=True,
+                        css_background_color="rgba(0,0,0,0)" # Fond transparent
+                    )
+                    
+                    # 2. Afficher cet HTML dans un composant
+                    components.html(deck_html, height=600, scrolling=False)
+                    
                 else:
                     st.warning("Impossible de générer la carte 3D.")
-            except Exception as e:
-                st.error(f"Erreur Pydeck : {e}")
-        else:
-            st.warning("Données GPS (position_lat/long) non trouvées.")
 
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
