@@ -22,8 +22,10 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
+    
+    # On importe les 2 fichiers pour la 3D
     from map_3d_engine import create_pydeck_chart 
-    from pydeck_html_wrapper import generate_deck_html # <-- IMPORT DU NOUVEAU WRAPPER
+    from pydeck_html_wrapper import generate_deck_html # <-- NOUVEL IMPORT
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
@@ -122,7 +124,7 @@ def main_app():
             col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             col3.metric("Temps de Déplacement", temps_deplacement_str)
-            col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
+            col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/M/h")
             
             st.subheader("Carte du Parcours 2D")
             map_style_options = {"Épuré": "carto-positron", "Rues": "open-street-map", "Sombre": "carto-darkmatter"}
@@ -136,7 +138,6 @@ def main_app():
                 st.warning("Données GPS (position_lat/long) non trouvées.")
             
             st.subheader("Statistiques Secondaires")
-            # ... (le reste de l'onglet résumé) ...
             v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
             avg_hr = session_data.get('avg_heart_rate'); max_hr = session_data.get('max_heart_rate')
             avg_cad = session_data.get('avg_cadence'); max_cad = session_data.get('max_cadence')
