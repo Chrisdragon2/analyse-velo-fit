@@ -55,10 +55,10 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
         const deckInstance = new deck.Deck({{
             
             // 3. Déstructurer la spécification Pydeck
-            // (contient tes couches, map_style=None, initialViewState, etc.)
+            // (contient tes couches, map_style=None, etc.)
            ...pydeckSpec,
             
-            // 4. FORCER l'activation du contrôleur 3D (LA CORRECTION)
+            // 4. FORCER l'activation du contrôleur 3D
             // Active le zoom, le panoramique et la rotation
             controller: true,
             
@@ -66,7 +66,10 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
             container: 'deck-gl-map',
 
             // 6. --- LA CORRECTION DU BUG "ÉCRAN NOIR" ---
-            // Le constructeur JS 'new Deck()' a besoin de la clé ici
+            // On restaure cette ligne. Elle dit à la caméra où regarder.
+            initialViewState: pydeckSpec.initialViewState,
+            
+            // 7. On s'assure que Deck.gl reçoit la clé
             mapboxApiAccessToken: "{mapbox_key}" 
         }});
 
