@@ -73,13 +73,10 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         min_zoom=0
     )
     
-    # --- !! CORRECTION ICI !! ---
-    # (Cette ligne manquait, ce qui causait l'erreur 'name not defined')
     path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
-    
     layer_main = pdk.Layer(
         'PathLayer',
-        data=path_data_main, # Utilise la variable définie ci-dessus
+        data=path_data_main,
         pickable=True,
         get_color=[255, 69, 0, 255], 
         width_scale=1,
@@ -119,6 +116,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
+    # On définit l'état initial de la caméra
     initial_view_state = pdk.ViewState(
         latitude=mid_lat,
         longitude=mid_lon,
@@ -135,12 +133,21 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
             layer_climbs,
             layer_sprints
         ],
-        initial_view_state=initial_view_state,
+        
+        # --- CORRECTION FINALE DU BUG 3D ---
+        # On remplace 'initial_view_state' par 'views'
+        # pour forcer l'utilisation du contrôleur 3D (MapController)
+        views=[pdk.View(
+            type="MapView",
+            controller=True, # Active le contrôleur 3D (zoom, pan, pitch, rotate)
+            view_state=initial_view_state # Utilise notre vue centrée
+        )],
+        
         api_keys={'mapbox': MAPBOX_KEY},
         tooltip={"text": "{name}"},
-        map_style=None,
-        width="100%",
-        height="100%"
+        map_style=None # Corrige le bug de la double carte
+        
+        # On supprime 'width' et 'height', car 'components.html' s'en occupe
     )
     
     return deck
