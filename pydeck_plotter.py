@@ -6,7 +6,7 @@ import numpy as np
 
 def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
-    Crée une carte 3D inclinée (Contrôles par défaut : Glisser=Déplacer)
+    Crée une carte 3D inclinée de la trace GPS en utilisant Pydeck
     AVEC surbrillance (Montées en ROSE, Sprints en CYAN).
     """
     
@@ -23,18 +23,18 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     if df_map.empty:
         st.warning("Données GPS/Altitude invalides pour la carte 3D."); return None
         
-    # --- 2. Échantillonnage ---
+    # --- 2. Échantillonnage (pour la trace principale) ---
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
     # --- 3. Préparation des données pour les couches ---
     
-    # Couche 1: Trace Principale (Orange)
+    # Couche 1: Trace Principale
     path_data_main = [
         {"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}
     ]
     
-    # Couche 2: Segments de Montée (Rose)
+    # Couche 2: Segments de Montée
     path_data_climbs = []
     for segment in climb_segments:
         sampling_rate_seg = max(1, len(segment) // 500)
@@ -46,7 +46,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
                 "name": "Montée"
             })
             
-    # Couche 3: Segments de Sprint (Cyan)
+    # Couche 3: Segments de Sprint
     path_data_sprints = []
     for segment in sprint_segments:
         sampling_rate_seg = max(1, len(segment) // 500)
@@ -72,37 +72,40 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     # --- 5. Définition des Couches (Layers) ---
     
+    # --- MODIFIÉ : Couche 1 (Trace Principale) ---
     layer_main = pdk.Layer(
         'PathLayer',
         data=path_data_main,
         pickable=True,
-        get_color=[255, 69, 0, 255], # Orange vif
+        get_color=[255, 69, 0, 255], # Orange vif Opaque
         width_scale=1,
-        width_min_pixels=3,
+        width_min_pixels=3, # Ligne principale (épaisseur moyenne)
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
     )
     
+    # --- MODIFIÉ : Couche 2 (Montées) ---
     layer_climbs = pdk.Layer(
         'PathLayer',
         data=path_data_climbs,
         pickable=True,
         get_color=[255, 0, 255, 255], # Rose / Magenta vif
         width_scale=1,
-        width_min_pixels=5,
+        width_min_pixels=5, # Plus épais pour surligner
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
     )
     
+    # --- MODIFIÉ : Couche 3 (Sprints) ---
     layer_sprints = pdk.Layer(
         'PathLayer',
         data=path_data_sprints,
         pickable=True,
-        get_color=[0, 255, 255, 255], # Cyan vif
+        get_color=[0, 255, 255, 255], # Cyan vif (Gardé)
         width_scale=1,
-        width_min_pixels=5,
+        width_min_pixels=5, # Plus épais pour surligner
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
@@ -110,6 +113,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     # --- 6. Création de la carte Pydeck ---
     
+    # Lire la clé depuis les secrets
     try:
         MAPBOX_KEY = st.secrets["MAPBOX_API_KEY"]
     except KeyError:
@@ -121,17 +125,15 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     deck = pdk.Deck(
         layers=[
-            layer_main,
-            layer_climbs,
-            layer_sprints
+            layer_main,     # 1. Trace de base (Orange)
+            layer_climbs,   # 2. Montées (Rose)
+            layer_sprints   # 3. Sprints (Cyan)
         ],
         initial_view_state=initial_view_state,
         map_provider="mapbox",
-        map_style=pdk.map_styles.SATELLITE,
+        map_style=pdk.map_styles.SATELLITE, # Style satellite
         api_keys={'mapbox': MAPBOX_KEY},
         tooltip={"text": "{name}"}
-        
-        # --- Ligne 'controller=...' SUPPRIMÉE ---
     )
     
     return deck
