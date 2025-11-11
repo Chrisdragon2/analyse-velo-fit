@@ -8,6 +8,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
     Crée une carte 3D inclinée de la trace GPS en utilisant Pydeck
     AVEC surbrillance (Montées en ROSE, Sprints en CYAN).
+    CONTRÔLES INVERSÉS : Glisser = Pivoter/Incliner.
     """
     
     # --- 1. Vérification des données ---
@@ -29,12 +30,12 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     # --- 3. Préparation des données pour les couches ---
     
-    # Couche 1: Trace Principale
+    # Couche 1: Trace Principale (Orange)
     path_data_main = [
         {"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}
     ]
     
-    # Couche 2: Segments de Montée
+    # Couche 2: Segments de Montée (Rose)
     path_data_climbs = []
     for segment in climb_segments:
         sampling_rate_seg = max(1, len(segment) // 500)
@@ -46,7 +47,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
                 "name": "Montée"
             })
             
-    # Couche 3: Segments de Sprint
+    # Couche 3: Segments de Sprint (Cyan)
     path_data_sprints = []
     for segment in sprint_segments:
         sampling_rate_seg = max(1, len(segment) // 500)
@@ -72,40 +73,37 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     # --- 5. Définition des Couches (Layers) ---
     
-    # --- MODIFIÉ : Couche 1 (Trace Principale) ---
     layer_main = pdk.Layer(
         'PathLayer',
         data=path_data_main,
         pickable=True,
-        get_color=[255, 69, 0, 255], # Orange vif Opaque
+        get_color=[255, 69, 0, 255], # Orange vif
         width_scale=1,
-        width_min_pixels=3, # Ligne principale (épaisseur moyenne)
+        width_min_pixels=3,
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
     )
     
-    # --- MODIFIÉ : Couche 2 (Montées) ---
     layer_climbs = pdk.Layer(
         'PathLayer',
         data=path_data_climbs,
         pickable=True,
         get_color=[255, 0, 255, 255], # Rose / Magenta vif
         width_scale=1,
-        width_min_pixels=5, # Plus épais pour surligner
+        width_min_pixels=5,
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
     )
     
-    # --- MODIFIÉ : Couche 3 (Sprints) ---
     layer_sprints = pdk.Layer(
         'PathLayer',
         data=path_data_sprints,
         pickable=True,
-        get_color=[0, 255, 255, 255], # Cyan vif (Gardé)
+        get_color=[0, 255, 255, 255], # Cyan vif
         width_scale=1,
-        width_min_pixels=5, # Plus épais pour surligner
+        width_min_pixels=5,
         get_path='path',
         get_width=5,
         tooltip={"text": "{name}"}
@@ -113,7 +111,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     # --- 6. Création de la carte Pydeck ---
     
-    # Lire la clé depuis les secrets
     try:
         MAPBOX_KEY = st.secrets["MAPBOX_API_KEY"]
     except KeyError:
@@ -125,15 +122,21 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
 
     deck = pdk.Deck(
         layers=[
-            layer_main,     # 1. Trace de base (Orange)
-            layer_climbs,   # 2. Montées (Rose)
-            layer_sprints   # 3. Sprints (Cyan)
+            layer_main,
+            layer_climbs,
+            layer_sprints
         ],
         initial_view_state=initial_view_state,
         map_provider="mapbox",
-        map_style=pdk.map_styles.SATELLITE, # Style satellite
+        map_style=pdk.map_styles.SATELLITE,
         api_keys={'mapbox': MAPBOX_KEY},
-        tooltip={"text": "{name}"}
+        tooltip={"text": "{name}"},
+        
+        # --- MODIFICATION : Inverser les contrôles ---
+        # dragRotate=True signifie que le glisser simple = rotation/inclinaison
+        # (Le déplacement (pan) se fera maintenant avec Maj + Glisser)
+        controller={'dragRotate': True}
+        # --- FIN MODIFICATION ---
     )
     
     return deck
