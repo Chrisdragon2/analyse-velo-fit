@@ -4,7 +4,8 @@ import numpy as np
 import plotly.graph_objects as go 
 import plotly.colors              
 import io 
-import pydeck as pdk # Importe pydeck
+import pydeck as pdk
+import streamlit.components.v1 as components # <-- NOUVEL IMPORT
 
 # --- Importations depuis les modules ---
 try:
@@ -20,12 +21,12 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
-    from pydeck_plotter import create_pydeck_chart # Import de la nouvelle fonction
+    from pydeck_plotter import create_pydeck_chart # Le bon nom de fonction
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
-# --- Fonction simplifiée pour estimer Crr ---
+# --- (Fonction estimate_crr_from_width ... inchangée) ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
@@ -226,20 +227,24 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
-# --- NOUVEL ONGLET : Carte 3D (Pydeck) ---
+    # --- MODIFIÉ : Onglet 5: Carte 3D (Pydeck en HTML) ---
     with tab_3d_map:
-        st.header("Carte 3D (Pydeck)")
+        st.header("Carte 3D (Vue Satellite)")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
-        with col2:
-            show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
+        # Vérifier si le token Mapbox est configuré
+        if "MAPBOX_API_KEY" not in st.secrets:
+            st.error("Clé API Mapbox non configurée. Ajoute 'MAPBOX_API_KEY = \"ta_clé\"' dans les Secrets de ton application Streamlit.")
+            st.info("Cette vue 3D nécessite une clé API Mapbox pour afficher le fond de carte satellite.")
+        
+        elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
-        # L'info a changé : le glisser pivote maintenant !
-        st.info("Utilisez Glisser (ou un doigt) pour incliner/pivoter. Utilisez Maj + Glisser (ou deux doigts) pour déplacer.")
-
-        if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
+            # --- Cases à cocher pour les highlights ---
+            col1, col2 = st.columns(2)
+            with col1:
+                show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
+            with col2:
+                show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
+            st.info("Utilisez Glisser pour pivoter/incliner. Utilisez Maj + Glisser pour déplacer.")
             
             # --- Préparation des données pour les highlights ---
             climb_segments_to_plot = []
@@ -268,14 +273,14 @@ def main_app():
                     except Exception:
                         pass
             # --- Fin préparation ---
-
+            
             try:
-                # --- MODIFIÉ : On récupère le HTML ---
+                # Appel de la fonction qui retourne du HTML
                 pydeck_html = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
                 if pydeck_html:
-                    # On affiche le HTML
-                    st.components.v1.html(pydeck_html, height=710, scrolling=False)
+                    # Afficher le HTML en utilisant 'components.html'
+                    components.html(pydeck_html, height=710, scrolling=False)
                 else:
                     st.warning("Impossible de générer la carte 3D.")
             except Exception as e:
@@ -287,4 +292,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
