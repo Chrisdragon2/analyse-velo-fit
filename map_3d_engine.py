@@ -74,7 +74,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
-        # Pas de 'max_zoom=15'
     )
 
     # Couche 1: Trace Principale (ORANGE)
@@ -131,21 +130,23 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         bearing=0
     )
 
-# --- 6. Création de la carte Pydeck (Stable) ---
-    deck = pdk.Deck(
-        layers=[
-            terrain_layer,
-            layer_main,
-            layer_climbs,
-            layer_sprints
-        ],
-        initial_view_state=initial_view_state,
-        api_keys={'mapbox': MAPBOX_KEY},
-        tooltip={"text": "{name}"},
-        map_style=None,
+    # --- 6. Création de la carte Pydeck (Stable) ---
+    deck = pdk.Deck(
+        layers=[
+            terrain_layer,
+            layer_main,
+            layer_climbs,
+            layer_sprints
+        ],
+        initial_view_state=initial_view_state,
+        api_keys={'mapbox': MAPBOX_KEY},
+        tooltip={"text": "{name}"},
         
-        # --- CORRECTION DE LA LARGEUR ---
-        width="100%"
-    )
+        # Force Pydeck à n'avoir aucun style de base (corrige le bug de la double carte)
+        map_style=None,
+        
+        # Force la carte à prendre 100% de la largeur du conteneur HTML
+        width="100%" 
+    )
     
     return deck
