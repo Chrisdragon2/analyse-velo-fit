@@ -6,8 +6,8 @@ import numpy as np
 
 def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
-    Crée une carte 3D inclinée (Contrôles Inversés : Glisser=Pivoter)
-    et la retourne sous forme de HTML brut.
+    Crée une carte 3D inclinée (Contrôles par défaut : Glisser=Déplacer)
+    AVEC surbrillance (Montées en ROSE, Sprints en CYAN).
     """
     
     # --- 1. Vérification des données ---
@@ -30,7 +30,9 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     # --- 3. Préparation des données pour les couches ---
     
     # Couche 1: Trace Principale (Orange)
-    path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
+    path_data_main = [
+        {"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}
+    ]
     
     # Couche 2: Segments de Montée (Rose)
     path_data_climbs = []
@@ -39,7 +41,10 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         segment_sampled = segment.iloc[::sampling_rate_seg, :]
         if not segment_sampled.empty and all(col in segment_sampled.columns for col in ['position_long', 'position_lat', 'altitude']):
             seg_renamed = segment_sampled.rename(columns={"position_lat": "lat", "position_long": "lon"})
-            path_data_climbs.append({"path": seg_renamed[['lon', 'lat', 'altitude']].values.tolist(), "name": "Montée"})
+            path_data_climbs.append({
+                "path": seg_renamed[['lon', 'lat', 'altitude']].values.tolist(),
+                "name": "Montée"
+            })
             
     # Couche 3: Segments de Sprint (Cyan)
     path_data_sprints = []
@@ -48,26 +53,62 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         segment_sampled = segment.iloc[::sampling_rate_seg, :]
         if not segment_sampled.empty and all(col in segment_sampled.columns for col in ['position_long', 'position_lat', 'altitude']):
             seg_renamed = segment_sampled.rename(columns={"position_lat": "lat", "position_long": "lon"})
-            path_data_sprints.append({"path": seg_renamed[['lon', 'lat', 'altitude']].values.tolist(), "name": "Sprint"})
+            path_data_sprints.append({
+                "path": seg_renamed[['lon', 'lat', 'altitude']].values.tolist(),
+                "name": "Sprint"
+            })
 
     # --- 4. Centrage de la vue ---
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
-    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0)
+    initial_view_state = pdk.ViewState(
+        latitude=mid_lat,
+        longitude=mid_lon,
+        zoom=11,
+        pitch=45,
+        bearing=0
+    )
 
     # --- 5. Définition des Couches (Layers) ---
     
-    layer_main = pdk.Layer('PathLayer', data=path_data_main, pickable=True, get_color=[255, 69, 0, 255], 
-                           width_scale=1, width_min_pixels=3, get_path='path', get_width=5, tooltip={"text": "{name}"})
+    layer_main = pdk.Layer(
+        'PathLayer',
+        data=path_data_main,
+        pickable=True,
+        get_color=[255, 69, 0, 255], # Orange vif
+        width_scale=1,
+        width_min_pixels=3,
+        get_path='path',
+        get_width=5,
+        tooltip={"text": "{name}"}
+    )
     
-    layer_climbs = pdk.Layer('PathLayer', data=path_data_climbs, pickable=True, get_color=[255, 0, 255, 255], 
-                             width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "{name}"})
+    layer_climbs = pdk.Layer(
+        'PathLayer',
+        data=path_data_climbs,
+        pickable=True,
+        get_color=[255, 0, 255, 255], # Rose / Magenta vif
+        width_scale=1,
+        width_min_pixels=5,
+        get_path='path',
+        get_width=5,
+        tooltip={"text": "{name}"}
+    )
     
-    layer_sprints = pdk.Layer('PathLayer', data=path_data_sprints, pickable=True, get_color=[0, 255, 255, 255], 
-                              width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "{name}"})
+    layer_sprints = pdk.Layer(
+        'PathLayer',
+        data=path_data_sprints,
+        pickable=True,
+        get_color=[0, 255, 255, 255], # Cyan vif
+        width_scale=1,
+        width_min_pixels=5,
+        get_path='path',
+        get_width=5,
+        tooltip={"text": "{name}"}
+    )
 
-    # --- 6. Création de la carte Pydeck (AVEC Mapbox et Contrôles Inversés) ---
+    # --- 6. Création de la carte Pydeck ---
     
     try:
         MAPBOX_KEY = st.secrets["MAPBOX_API_KEY"]
@@ -79,26 +120,18 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
          return None
 
     deck = pdk.Deck(
-        layers=[layer_main, layer_climbs, layer_sprints],
+        layers=[
+            layer_main,
+            layer_climbs,
+            layer_sprints
+        ],
         initial_view_state=initial_view_state,
         map_provider="mapbox",
         map_style=pdk.map_styles.SATELLITE,
         api_keys={'mapbox': MAPBOX_KEY},
+        tooltip={"text": "{name}"}
         
-        # --- LA MODIFICATION IMPORTANTE ---
-        # dragRotate=True signifie que le glisser simple = rotation/inclinaison
-        controller={'dragRotate': True},
-        # --- FIN MODIFICATION ---
-        
-        tooltip={"html": "<b>{name}</b>"} # Tooltip simple
+        # --- Ligne 'controller=...' SUPPRIMÉE ---
     )
     
-    # --- MODIFICATION : Générer le HTML ---
-    try:
-        # Génère le HTML complet dans une chaîne de caractères
-        html_content = deck.to_html(as_string=True, iframe_width="100%", iframe_height=700)
-        return html_content
-        
-    except Exception as e:
-        st.error(f"Erreur lors de la génération du HTML Pydeck : {e}")
-        return None
+    return deck
