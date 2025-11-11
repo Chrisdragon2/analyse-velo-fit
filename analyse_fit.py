@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go 
 import plotly.colors              
 import io 
-import pydeck as pdk # Importe pydeck
+import pydeck as pdk 
 import streamlit.components.v1 as components
 import json # Importé pour la sérialisation
 
@@ -22,9 +22,8 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
-    # !! CHANGEMENT ICI !!
-    from map_3d_engine import create_pydeck_chart # On importe depuis le nouveau fichier
-    from pydeck_html_wrapper import generate_deck_html # <-- NOUVEL IMPORT
+    from map_3d_engine import create_pydeck_chart 
+    from pydeck_html_wrapper import generate_deck_html # <-- IMPORT DU NOUVEAU WRAPPER
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
@@ -137,6 +136,7 @@ def main_app():
                 st.warning("Données GPS (position_lat/long) non trouvées.")
             
             st.subheader("Statistiques Secondaires")
+            # ... (le reste de l'onglet résumé) ...
             v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
             avg_hr = session_data.get('avg_heart_rate'); max_hr = session_data.get('max_heart_rate')
             avg_cad = session_data.get('avg_cadence'); max_cad = session_data.get('max_cadence')
