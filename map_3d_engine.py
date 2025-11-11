@@ -74,7 +74,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
-        # La ligne 'max_zoom=15' est supprimée
+        # Pas de 'max_zoom=15'
     )
 
     # Couche 1: Trace Principale (ORANGE)
@@ -134,17 +134,18 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     # --- 6. Création de la carte Pydeck (Stable) ---
     deck = pdk.Deck(
         layers=[
-            terrain_layer,  # 0. Le terrain 3D (en dessous)
-            layer_main,     # 1. Trace de base
-            layer_climbs,   # 2. Montées
-            layer_sprints   # 3. Sprints (tout au-dessus)
+            terrain_layer,
+            layer_main,
+            layer_climbs,
+            layer_sprints
         ],
         initial_view_state=initial_view_state,
+        api_keys={'mapbox': MAPBOX_KEY},
+        tooltip={"text": "{name}"},
         
-        # Ni 'map_provider' ni 'map_style' ne sont ici
-        
-        api_keys={'mapbox': MAPBOX_KEY}, # Toujours nécessaire pour les tuiles
-        tooltip={"text": "{name}"}
+        # --- LA CORRECTION FINALE DU BUG ---
+        map_style=None 
+        # Force Streamlit/Pydeck à ne PAS dessiner de carte de base
     )
     
     return deck
