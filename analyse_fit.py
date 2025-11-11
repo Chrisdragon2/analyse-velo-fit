@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.colors              
 import io 
 import pydeck as pdk # Importe pydeck
-import streamlit.components.v1 as components
+import streamlit.components.v1 as components # <-- NOUVEL IMPORT
 
 # --- Importations depuis les modules ---
 try:
@@ -272,6 +272,8 @@ def main_app():
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
                         pass
+            
+            # --- BLOC DE RENDU 3D MIS À JOUR ---
             try:
                 # On récupère l'objet Deck comme avant
                 pydeck_deck_object = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
@@ -292,7 +294,7 @@ def main_app():
                 else:
                     st.warning("Impossible de générer la carte 3D.")
             
-            # --- !! AJOUTE CES DEUX LIGNES !! ---
+            # --- BLOC EXCEPT CORRIGÉ ---
             except Exception as e:
                 st.error(f"Erreur Pydeck : {e}")
                 
@@ -302,5 +304,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
-
