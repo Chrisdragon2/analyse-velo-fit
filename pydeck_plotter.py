@@ -24,10 +24,8 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         
         if not segment_map.empty:
-            # Échantillonner les segments longs pour la performance
-            sampling_rate_seg = max(1, len(segment_map) // 500) # Max 500 pts par segment
+            sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
-            
             path_data_list.append({
                 "path": segment_sampled[['lon', 'lat', 'altitude']].values.tolist()
             })
@@ -37,7 +35,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
     Crée une carte 3D inclinée de la trace GPS ET du terrain réel
     en utilisant Pydeck avec la TerrainLayer de Mapbox.
-    (Version stable sans 'controller' et sans limite de zoom)
+    (Version stable SANS 'controller' ET SANS 'map_style' conflictuel)
     """
     
     # --- 0. Vérifier la clé API ---
@@ -75,6 +73,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
+        # max_zoom=15 (supprimé)
     )
 
     # Couche 1: Trace Principale (ORANGE)
@@ -131,16 +130,22 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         bearing=0
     )
 
-    # --- 6. Création de la carte Pydeck (Stable) ---
+    # --- 6. Création de la carte Pydeck (Corrigée) ---
     deck = pdk.Deck(
         layers=[
-            terrain_layer,
+            terrain_layer, # La TerrainLayer gère le fond ET le relief
             layer_main,
             layer_climbs,
             layer_sprints
         ],
         initial_view_state=initial_view_state,
-        api_keys={'mapbox': MAPBOX_KEY},
+        
+        # --- CORRECTION : Ces lignes sont supprimées ---
+        # map_provider="mapbox", (Inutile, géré par TerrainLayer)
+        # map_style=pdk.map_styles.SATELLITE, (Inutile, géré par TerrainLayer)
+        # --- FIN CORRECTION ---
+        
+        api_keys={'mapbox': MAPBOX_KEY}, # Toujours nécessaire pour les tuiles
         tooltip={"text": "{name}"}
     )
     
