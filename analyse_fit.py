@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import plotly.colors
-import io
+import plotly.graph_objects as go 
+import plotly.colors              
+import io 
 import pydeck as pdk # Importe pydeck
 
-# --- Importations depuis les modules (alignées à gauche) ---
+# --- Importations depuis les modules ---
 try:
     from data_loader import load_and_clean_data
     from power_estimator import estimate_power
@@ -29,24 +29,20 @@ except ImportError as e:
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
-    if width_mm > 25:
-        return base_crr + (width_mm - 25) * additional_crr_per_mm
-    else:
-        return base_crr
+    if width_mm > 25: return base_crr + (width_mm - 25) * additional_crr_per_mm
+    else: return base_crr
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
     st.set_page_config(layout="wide", page_title="Analyseur FIT")
-    st.title("Analyseur de Sortie")
+    st.title("Analyseur de Sortie FIT")
     
     if 'sprint_display_mode' not in st.session_state:
         st.session_state.sprint_display_mode = "courbes"
 
     def toggle_sprint_display_mode():
-        if st.session_state.sprint_display_mode == "courbes":
-            st.session_state.sprint_display_mode = "barres"
-        else:
-            st.session_state.sprint_display_mode = "courbes"
+        if st.session_state.sprint_display_mode == "courbes": st.session_state.sprint_display_mode = "barres"
+        else: st.session_state.sprint_display_mode = "courbes"
 
     # --- INPUT UTILISATEUR (Sidebar) ---
     with st.sidebar:
@@ -105,7 +101,7 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS ---
+    # --- STRUCTURE PAR ONGLETS (avec Carte 3D) ---
     tab_summary, tab_profile, tab_climbs, tab_sprints, tab_3d_map = st.tabs(["Résumé", "Profil 2D", "Montées", "Sprints", "Carte 3D"])
 
     # --- Onglet 1: Résumé ---
@@ -237,11 +233,10 @@ def main_app():
         # Vérifier si le token Mapbox est configuré
         if "MAPBOX_API_KEY" not in st.secrets:
             st.error("Clé API Mapbox non configurée. Ajoute 'MAPBOX_API_KEY = \"ta_clé\"' dans les Secrets de ton application Streamlit.")
-            st.info("Cette vue 3D nécessite une clé API Mapbox pour afficher le fond de carte satellite.")
         
         elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
-            # --- Cases à cocher pour les highlights ---
+            # Cases à cocher pour les highlights
             col1, col2 = st.columns(2)
             with col1:
                 show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
@@ -249,7 +244,7 @@ def main_app():
                 show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
             st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
             
-            # --- Préparation des données pour les highlights ---
+            # Préparation des données pour les highlights
             climb_segments_to_plot = []
             if show_climbs and montees_grouped is not None:
                 processed_results_count = 0
@@ -275,10 +270,9 @@ def main_app():
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
                         pass
-            # --- Fin préparation ---
             
             try:
-                # On passe les listes de segments à la fonction
+                # Appel avec les 3 arguments
                 pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
                 if pydeck_chart:
@@ -290,8 +284,6 @@ def main_app():
         else:
             st.warning("Données GPS (position_lat/long) non trouvées.")
 
-
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
