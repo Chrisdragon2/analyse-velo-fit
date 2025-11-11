@@ -131,21 +131,21 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         bearing=0
     )
 
-    # --- 6. Création de la carte Pydeck (Stable) ---
-    deck = pdk.Deck(
-        layers=[
-            terrain_layer,
-            layer_main,
-            layer_climbs,
-            layer_sprints
-        ],
-        initial_view_state=initial_view_state,
-        api_keys={'mapbox': MAPBOX_KEY},
-        tooltip={"text": "{name}"},
+# --- 6. Création de la carte Pydeck (Stable) ---
+    deck = pdk.Deck(
+        layers=[
+            terrain_layer,
+            layer_main,
+            layer_climbs,
+            layer_sprints
+        ],
+        initial_view_state=initial_view_state,
+        api_keys={'mapbox': MAPBOX_KEY},
+        tooltip={"text": "{name}"},
+        map_style=None,
         
-        # --- LA CORRECTION FINALE DU BUG ---
-        map_style=None 
-        # Force Streamlit/Pydeck à ne PAS dessiner de carte de base
-    )
+        # --- CORRECTION DE LA LARGEUR ---
+        width="100%"
+    )
     
     return deck
