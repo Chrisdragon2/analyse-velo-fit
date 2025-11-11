@@ -46,7 +46,6 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
 
     <script type="text/javascript">
         // Définir la clé Mapbox (sécurisée par restriction d'URL)
-        // C'est redondant mais ne fait pas de mal.
         mapboxgl.accessToken = "{mapbox_key}";
 
         // 1. Recevoir la spécification JSON injectée depuis Python
@@ -67,8 +66,7 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
             container: 'deck-gl-map',
 
             // 6. --- LA CORRECTION DU BUG "ÉCRAN NOIR" ---
-            // Le constructeur JS 'new Deck()' a besoin de la clé ici,
-            // pas seulement 'mapboxgl.accessToken'
+            // Le constructeur JS 'new Deck()' a besoin de la clé ici
             mapboxApiAccessToken: "{mapbox_key}" 
         }});
 
