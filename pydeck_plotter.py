@@ -75,7 +75,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
-        # max_zoom=15 (supprimé pour corriger le bug de zoom)
     )
 
     # Couche 1: Trace Principale (ORANGE)
@@ -143,7 +142,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         initial_view_state=initial_view_state,
         api_keys={'mapbox': MAPBOX_KEY},
         tooltip={"text": "{name}"}
-        # Pas de 'controller' ici
     )
     
     return deck
