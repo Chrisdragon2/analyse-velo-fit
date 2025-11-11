@@ -4,8 +4,7 @@ import numpy as np
 import plotly.graph_objects as go 
 import plotly.colors              
 import io 
-import pydeck as pdk
-import streamlit.components.v1 as components # <-- NOUVEL IMPORT
+import pydeck as pdk # Importe pydeck
 
 # --- Importations depuis les modules ---
 try:
@@ -21,12 +20,12 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
-    from pydeck_plotter import create_pydeck_chart # Le bon nom de fonction
+    from pydeck_plotter import create_pydeck_chart # Import de la nouvelle fonction
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
-# --- (Fonction estimate_crr_from_width ... inchangée) ---
+# --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
@@ -227,24 +226,20 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
-    # --- MODIFIÉ : Onglet 5: Carte 3D (Pydeck en HTML) ---
+    # --- Onglet 5: Carte 3D (Pydeck) ---
     with tab_3d_map:
-        st.header("Carte 3D (Vue Satellite)")
+        st.header("Carte 3D (Pydeck)")
         
-        # Vérifier si le token Mapbox est configuré
-        if "MAPBOX_API_KEY" not in st.secrets:
-            st.error("Clé API Mapbox non configurée. Ajoute 'MAPBOX_API_KEY = \"ta_clé\"' dans les Secrets de ton application Streamlit.")
-            st.info("Cette vue 3D nécessite une clé API Mapbox pour afficher le fond de carte satellite.")
-        
-        elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
-            
-            # --- Cases à cocher pour les highlights ---
-            col1, col2 = st.columns(2)
-            with col1:
-                show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
-            with col2:
-                show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
-            st.info("Utilisez Glisser pour pivoter/incliner. Utilisez Maj + Glisser pour déplacer.")
+        # --- AJOUT DES CASES À COCHER ---
+        col1, col2 = st.columns(2)
+        with col1:
+            show_climbs = st.checkbox("Afficher les Montées (Rouge)", value=True, key="3d_climbs")
+        with col2:
+            show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
+        st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
+        # --- FIN AJOUT ---
+
+        if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
             # --- Préparation des données pour les highlights ---
             climb_segments_to_plot = []
@@ -252,14 +247,14 @@ def main_app():
                 processed_results_count = 0
                 montee_ids = list(montees_grouped.groups.keys())
                 for nom_bloc in montee_ids:
-                     segment = montees_grouped.get_group(nom_bloc) 
+                     segment = montees_grouped.get_group(nom_bloc)
                      if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
                      distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
                      if distance_segment >= min_climb_distance:
                          if processed_results_count < len(resultats_montées):
-                            climb_segments_to_plot.append(segment)
+                            climb_segments_to_plot.append(segment) # On ajoute le DataFrame
                             processed_results_count += 1
-                         else: break
+                         else: break # Assez de montées trouvées
 
             sprint_segments_to_plot = []
             if show_sprints and not sprints_df_full.empty:
@@ -271,16 +266,15 @@ def main_app():
                         segment_data = df_analyzed.loc[start_time:end_time]
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
-                        pass
+                        pass # Ignorer les erreurs d'extraction
             # --- Fin préparation ---
-            
+
             try:
-                # Appel de la fonction qui retourne du HTML
-                pydeck_html = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
+                # On passe les listes de segments à la fonction
+                pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
-                if pydeck_html:
-                    # Afficher le HTML en utilisant 'components.html'
-                    components.html(pydeck_html, height=710, scrolling=False)
+                if pydeck_chart:
+                    st.pydeck_chart(pydeck_chart, use_container_width=True)
                 else:
                     st.warning("Impossible de générer la carte 3D.")
             except Exception as e:
