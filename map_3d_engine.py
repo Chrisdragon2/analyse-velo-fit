@@ -140,7 +140,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         tooltip={"text": "{name}"},
         map_style=None,
         width="100%",
-        controller=True  # Force l'utilisation du contrôleur 3D
+        height="100%"
     )
     
     return deck
