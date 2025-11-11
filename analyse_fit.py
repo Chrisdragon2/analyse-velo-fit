@@ -1,14 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go 
-import plotly.colors              
-import io 
-import pydeck as pdk
+import plotly.graph_objects as go
+import plotly.colors
+import io
+import pydeck as pdk # Importe pydeck
 
-# --- Importations depuis les modules ---
+# --- Importations depuis les modules (alignées à gauche) ---
 try:
-    # TOUT DOIT ÊTRE ALIGNÉ À GAUCHE
     from data_loader import load_and_clean_data
     from power_estimator import estimate_power
     from climb_processing import (
@@ -21,17 +20,19 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
-    from pydeck_plotter import create_pydeck_chart
+    from pydeck_plotter import create_pydeck_chart # Le bon nom de fonction
 except ImportError as e:
-    st.error(f"Erreur d'importation: {e}")
+    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
 # --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
-    if width_mm > 25: return base_crr + (width_mm - 25) * additional_crr_per_mm
-    else: return base_crr
+    if width_mm > 25:
+        return base_crr + (width_mm - 25) * additional_crr_per_mm
+    else:
+        return base_crr
 
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
@@ -42,10 +43,12 @@ def main_app():
         st.session_state.sprint_display_mode = "courbes"
 
     def toggle_sprint_display_mode():
-        if st.session_state.sprint_display_mode == "courbes": st.session_state.sprint_display_mode = "barres"
-        else: st.session_state.sprint_display_mode = "courbes"
+        if st.session_state.sprint_display_mode == "courbes":
+            st.session_state.sprint_display_mode = "barres"
+        else:
+            st.session_state.sprint_display_mode = "courbes"
 
-    # --- INPUT UTILISATEUR (Sidebar - inchangée) ---
+    # --- INPUT UTILISATEUR (Sidebar) ---
     with st.sidebar:
         st.header("1. Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
@@ -102,7 +105,7 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS (avec Carte 3D) ---
+    # --- STRUCTURE PAR ONGLETS ---
     tab_summary, tab_profile, tab_climbs, tab_sprints, tab_3d_map = st.tabs(["Résumé", "Profil 2D", "Montées", "Sprints", "Carte 3D"])
 
     # --- Onglet 1: Résumé ---
@@ -229,18 +232,22 @@ def main_app():
 
     # --- Onglet 5: Carte 3D (Pydeck) ---
     with tab_3d_map:
-        st.header("Carte 3D (Pydeck)")
+        st.header("Carte 3D (Vue Satellite)")
         
-        # --- AJOUT DES CASES À COCHER ---
-        col1, col2 = st.columns(2)
-        with col1:
-            show_climbs = st.checkbox("Afficher les Montées (Rouge)", value=True, key="3d_climbs")
-        with col2:
-            show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
-        st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
-        # --- FIN AJOUT ---
-
-        if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
+        # Vérifier si le token Mapbox est configuré
+        if "MAPBOX_API_KEY" not in st.secrets:
+            st.error("Clé API Mapbox non configurée. Ajoute 'MAPBOX_API_KEY = \"ta_clé\"' dans les Secrets de ton application Streamlit.")
+            st.info("Cette vue 3D nécessite une clé API Mapbox pour afficher le fond de carte satellite.")
+        
+        elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
+            
+            # --- Cases à cocher pour les highlights ---
+            col1, col2 = st.columns(2)
+            with col1:
+                show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
+            with col2:
+                show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
+            st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
             
             # --- Préparation des données pour les highlights ---
             climb_segments_to_plot = []
@@ -248,14 +255,14 @@ def main_app():
                 processed_results_count = 0
                 montee_ids = list(montees_grouped.groups.keys())
                 for nom_bloc in montee_ids:
-                     segment = montees_grouped.get_group(nom_bloc)
+                     segment = montees_grouped.get_group(nom_bloc) 
                      if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
                      distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
                      if distance_segment >= min_climb_distance:
                          if processed_results_count < len(resultats_montées):
-                            climb_segments_to_plot.append(segment) # On ajoute le DataFrame
+                            climb_segments_to_plot.append(segment)
                             processed_results_count += 1
-                         else: break # Assez de montées trouvées
+                         else: break
 
             sprint_segments_to_plot = []
             if show_sprints and not sprints_df_full.empty:
@@ -267,9 +274,9 @@ def main_app():
                         segment_data = df_analyzed.loc[start_time:end_time]
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
-                        pass # Ignorer les erreurs d'extraction
+                        pass
             # --- Fin préparation ---
-
+            
             try:
                 # On passe les listes de segments à la fonction
                 pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
@@ -287,4 +294,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
