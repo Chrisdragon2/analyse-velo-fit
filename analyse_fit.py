@@ -20,7 +20,8 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
-    from pydeck_plotter import create_pydeck_chart # Le bon nom de fonction
+    # !! CHANGEMENT ICI !!
+    from map_3d_engine import create_pydeck_chart # On importe depuis le nouveau fichier
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
