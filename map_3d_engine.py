@@ -72,9 +72,14 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
     )
+    
+    # --- !! CORRECTION ICI !! ---
+    # (Cette ligne manquait, ce qui causait l'erreur 'name not defined')
+    path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
+    
     layer_main = pdk.Layer(
         'PathLayer',
-        data=path_data_main,
+        data=path_data_main, # Utilise la variable définie ci-dessus
         pickable=True,
         get_color=[255, 69, 0, 255], 
         width_scale=1,
@@ -83,6 +88,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         get_width=5,
         tooltip={"text": "Trace Complète"}
     )
+    
     path_data_climbs = prepare_segment_data(climb_segments, required_cols_main)
     layer_climbs = pdk.Layer(
         'PathLayer',
@@ -95,6 +101,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         get_width=5,
         tooltip={"text": "Montée"}
     )
+    
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
     layer_sprints = pdk.Layer(
         'PathLayer',
@@ -133,8 +140,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         tooltip={"text": "{name}"},
         map_style=None,
         width="100%",
-        
-        # --- LA CORRECTION FINALE ---
         controller=True  # Force l'utilisation du contrôleur 3D
     )
     
