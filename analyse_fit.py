@@ -37,7 +37,7 @@ def estimate_crr_from_width(width_mm):
 # --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
     st.set_page_config(layout="wide", page_title="Analyseur FIT")
-    st.title("Analyseur de Sortie FIT")
+    st.title("Analyseur de Sortie")
     
     if 'sprint_display_mode' not in st.session_state:
         st.session_state.sprint_display_mode = "courbes"
@@ -294,3 +294,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
