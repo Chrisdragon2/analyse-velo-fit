@@ -11,7 +11,6 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
     """
     
     # 1. Obtenir la spécification JSON de l'objet Deck
-    # Nous utilisons to_json() et non to_html()
     deck_json_string = pydeck_object.to_json()
 
     # 2. Définir le template HTML/JS
@@ -37,7 +36,7 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
         #deck-gl-map {{ 
             height: 100%; 
             width: 100%; 
-            background-color: #000; /* Fond noir par défaut */
+            background-color: #000;
         }}
     </style>
 </head>
@@ -46,8 +45,7 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
     <div id="deck-gl-map"></div>
 
     <script type="text/javascript">
-        // Définir la clé Mapbox (nécessaire pour TerrainLayer)
-        // C'est sécurisé car tu as restreint l'URL de cette clé
+        // Définir la clé Mapbox (sécurisée par restriction d'URL)
         mapboxgl.accessToken = "{mapbox_key}";
 
         // 1. Recevoir la spécification JSON injectée depuis Python
@@ -65,10 +63,7 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
             controller: true,
             
             // 5. Spécifier le conteneur
-            container: 'deck-gl-map',
-            
-            // 6. S'assurer que le ViewState est passé (unifie les altitudes)
-            initialViewState: pydeckSpec.initialViewState
+            container: 'deck-gl-map'
         }});
 
     </script>
