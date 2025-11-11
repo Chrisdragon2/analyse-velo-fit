@@ -6,7 +6,7 @@ import numpy as np
 
 def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
-    Crée une carte 3D inclinée (Contrôles Inversés)
+    Crée une carte 3D inclinée (Contrôles Inversés : Glisser=Pivoter)
     et la retourne sous forme de HTML brut.
     """
     
@@ -71,9 +71,12 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     
     try:
         MAPBOX_KEY = st.secrets["MAPBOX_API_KEY"]
-    except Exception:
+    except KeyError:
         st.error("Clé 'MAPBOX_API_KEY' non trouvée dans les secrets Streamlit !")
         return None
+    except FileNotFoundError:
+         st.error("Fichier secrets.toml non trouvé.")
+         return None
 
     deck = pdk.Deck(
         layers=[layer_main, layer_climbs, layer_sprints],
@@ -82,26 +85,18 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         map_style=pdk.map_styles.SATELLITE,
         api_keys={'mapbox': MAPBOX_KEY},
         
-        # --- MODIFICATION : Inverser les contrôles ---
-        # On dit à Pydeck que le "drag" (glisser) doit "rotate" (pivoter)
+        # --- LA MODIFICATION IMPORTANTE ---
+        # dragRotate=True signifie que le glisser simple = rotation/inclinaison
         controller={'dragRotate': True},
         # --- FIN MODIFICATION ---
         
-        # Le Tooltip est maintenant défini au niveau du Deck pour toutes les couches
-        tooltip={"html": "<b>{name}</b>"} 
+        tooltip={"html": "<b>{name}</b>"} # Tooltip simple
     )
     
     # --- MODIFICATION : Générer le HTML ---
-    # On sauvegarde la carte en HTML
     try:
-        # On spécifie un nom de fichier temporaire
-        html_file = "temp_pydeck_map.html"
-        deck.to_html(html_file, notebook_display=False, iframe_width="100%", iframe_height=700)
-        
-        # On lit le contenu du fichier HTML
-        with open(html_file, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        
+        # Génère le HTML complet dans une chaîne de caractères
+        html_content = deck.to_html(as_string=True, iframe_width="100%", iframe_height=700)
         return html_content
         
     except Exception as e:
