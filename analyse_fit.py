@@ -226,18 +226,18 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
-    # --- Onglet 5: Carte 3D (Pydeck) ---
+# --- NOUVEL ONGLET : Carte 3D (Pydeck) ---
     with tab_3d_map:
         st.header("Carte 3D (Pydeck)")
         
-        # --- AJOUT DES CASES À COCHER ---
         col1, col2 = st.columns(2)
         with col1:
-            show_climbs = st.checkbox("Afficher les Montées (Rouge)", value=True, key="3d_climbs")
+            show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
         with col2:
             show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
-        st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
-        # --- FIN AJOUT ---
+            
+        # L'info a changé : le glisser pivote maintenant !
+        st.info("Utilisez Glisser (ou un doigt) pour incliner/pivoter. Utilisez Maj + Glisser (ou deux doigts) pour déplacer.")
 
         if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
@@ -247,14 +247,14 @@ def main_app():
                 processed_results_count = 0
                 montee_ids = list(montees_grouped.groups.keys())
                 for nom_bloc in montee_ids:
-                     segment = montees_grouped.get_group(nom_bloc)
+                     segment = montees_grouped.get_group(nom_bloc) 
                      if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
                      distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
                      if distance_segment >= min_climb_distance:
                          if processed_results_count < len(resultats_montées):
-                            climb_segments_to_plot.append(segment) # On ajoute le DataFrame
+                            climb_segments_to_plot.append(segment)
                             processed_results_count += 1
-                         else: break # Assez de montées trouvées
+                         else: break
 
             sprint_segments_to_plot = []
             if show_sprints and not sprints_df_full.empty:
@@ -266,15 +266,16 @@ def main_app():
                         segment_data = df_analyzed.loc[start_time:end_time]
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
-                        pass # Ignorer les erreurs d'extraction
+                        pass
             # --- Fin préparation ---
 
             try:
-                # On passe les listes de segments à la fonction
-                pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
+                # --- MODIFIÉ : On récupère le HTML ---
+                pydeck_html = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
-                if pydeck_chart:
-                    st.pydeck_chart(pydeck_chart, use_container_width=True)
+                if pydeck_html:
+                    # On affiche le HTML
+                    st.components.v1.html(pydeck_html, height=710, scrolling=False)
                 else:
                     st.warning("Impossible de générer la carte 3D.")
             except Exception as e:
@@ -286,3 +287,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
