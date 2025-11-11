@@ -275,8 +275,7 @@ def main_app():
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
                         pass
-            
-            # --- BLOC DE RENDU 3D MIS À JOUR (selon Sec 4.2) ---
+            --
             try:
                 # 1. Récupérer la clé API (pour la passer au template HTML)
                 if "MAPBOX_API_KEY" not in st.secrets:
@@ -299,6 +298,10 @@ def main_app():
                     st.warning("Impossible de générer la carte 3D.")
             
             except Exception as e:
+                # --- LA CORRECTION DU DIAGNOSTIC ---
+                # Affiche l'erreur complète (la "traceback") 
+                # directement sur la page de l'application.
+                st.exception(e)
                 st.error(f"Erreur Pydeck : {e}")
                 
         else:
@@ -307,3 +310,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
