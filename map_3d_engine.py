@@ -24,8 +24,7 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         
         if not segment_map.empty:
-            # Échantillonner les segments longs pour la performance
-            sampling_rate_seg = max(1, len(segment_map) // 500) # Max 500 pts par segment
+            sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
             
             path_data_list.append({
@@ -66,8 +65,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
 
     # --- 4. Création des couches (Layers) ---
-    
-    # Couche 0: Le Terrain 3D (fond de carte)
     terrain_layer = pdk.Layer(
         "TerrainLayer",
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
@@ -75,42 +72,35 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
     )
-
-    # Couche 1: Trace Principale (ORANGE)
-    path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
     layer_main = pdk.Layer(
         'PathLayer',
         data=path_data_main,
         pickable=True,
-        get_color=[255, 69, 0, 255], # Orange vif
+        get_color=[255, 69, 0, 255], 
         width_scale=1,
         width_min_pixels=3,
         get_path='path',
         get_width=5,
-        tooltip={"text": "{name}"}
+        tooltip={"text": "Trace Complète"}
     )
-    
-    # Couche 2: Montées (ROSE / MAGENTA)
     path_data_climbs = prepare_segment_data(climb_segments, required_cols_main)
     layer_climbs = pdk.Layer(
         'PathLayer',
         data=path_data_climbs,
         pickable=True,
-        get_color=[255, 0, 255, 255], # Rose / Magenta vif
+        get_color=[255, 0, 255, 255], 
         width_scale=1,
         width_min_pixels=5,
         get_path='path',
         get_width=5,
         tooltip={"text": "Montée"}
     )
-    
-    # Couche 3: Sprints (CYAN)
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
     layer_sprints = pdk.Layer(
         'PathLayer',
         data=path_data_sprints,
         pickable=True,
-        get_color=[0, 255, 255, 255], # Cyan vif
+        get_color=[0, 255, 255, 255], 
         width_scale=1,
         width_min_pixels=5,
         get_path='path',
@@ -141,12 +131,11 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         initial_view_state=initial_view_state,
         api_keys={'mapbox': MAPBOX_KEY},
         tooltip={"text": "{name}"},
-        
-        # Force Pydeck à n'avoir aucun style de base (corrige le bug de la double carte)
         map_style=None,
+        width="100%",
         
-        # Force la carte à prendre 100% de la largeur du conteneur HTML
-        width="100%" 
+        # --- LA CORRECTION FINALE ---
+        controller=True  # Force l'utilisation du contrôleur 3D
     )
     
     return deck
