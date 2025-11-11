@@ -3,3 +3,4 @@ pandas
 numpy
 fitparse
 plotly
+pydeck
