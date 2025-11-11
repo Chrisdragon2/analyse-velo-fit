@@ -291,8 +291,16 @@ def main_app():
                     
                 else:
                     st.warning("Impossible de générer la carte 3D.")
+            
+            # --- !! AJOUTE CES DEUX LIGNES !! ---
+            except Exception as e:
+                st.error(f"Erreur Pydeck : {e}")
+                
+        else:
+            st.warning("Données GPS (position_lat/long) non trouvées.")
 
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
 
