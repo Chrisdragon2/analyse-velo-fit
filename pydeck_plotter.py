@@ -37,7 +37,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
     Crée une carte 3D inclinée de la trace GPS ET du terrain réel
     en utilisant Pydeck avec la TerrainLayer de Mapbox.
-    (Version stable sans 'controller')
+    (Version stable sans 'controller' et sans limite de zoom)
     """
     
     # --- 0. Vérifier la clé API ---
@@ -74,8 +74,8 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
-        min_zoom=0,
-        max_zoom=15
+        min_zoom=0
+        # --- max_zoom=15 SUPPRIMÉ ---
     )
 
     # Couche 1: Trace Principale (ORANGE)
@@ -135,19 +135,14 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     # --- 6. Création de la carte Pydeck (Stable) ---
     deck = pdk.Deck(
         layers=[
-            terrain_layer,  # 0. Le terrain 3D (en dessous)
-            layer_main,     # 1. Trace de base
-            layer_climbs,   # 2. Montées
-            layer_sprints   # 3. Sprints (tout au-dessus)
+            terrain_layer,
+            layer_main,
+            layer_climbs,
+            layer_sprints
         ],
         initial_view_state=initial_view_state,
-        
-        # On n'utilise PAS map_provider/map_style car la TerrainLayer gère le fond
-        
-        api_keys={'mapbox': MAPBOX_KEY}, # Toujours nécessaire pour les tuiles
+        api_keys={'mapbox': MAPBOX_KEY},
         tooltip={"text": "{name}"}
-        
-        # PAS DE 'controller' ici pour éviter le bug
     )
     
     return deck
