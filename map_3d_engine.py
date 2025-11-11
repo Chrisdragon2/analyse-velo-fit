@@ -8,13 +8,12 @@ import numpy as np
 def check_mapbox_api_key():
     if "MAPBOX_API_KEY" not in st.secrets:
         st.error("Clé API Mapbox non trouvée dans les secrets.")
-        st.info("Veuillez ajouter 'MAPBOX_API_KEY = \"votre_clé\"' à vos secrets Streamlit pour afficher la carte 3D.")
+        st.info("Veuillez ajouter 'MAPBOX_API_KEY = \"votre_clé\"' à vos secrets Streamlit.")
         return False, None
     return True, st.secrets["MAPBOX_API_KEY"]
 
 # Fonction pour préparer les segments (montées ou sprints)
 def prepare_segment_data(segments, required_cols):
-    """Convertit une liste de DataFrames de segment en une liste de données pour Pydeck."""
     path_data_list = []
     for segment in segments:
         if not all(col in segment.columns for col in required_cols):
@@ -34,33 +33,26 @@ def prepare_segment_data(segments, required_cols):
 
 def create_pydeck_chart(df, climb_segments, sprint_segments):
     """
-    Crée une carte 3D inclinée de la trace GPS ET du terrain réel
-    en utilisant Pydeck avec la TerrainLayer de Mapbox.
+    Crée l'objet pdk.Deck avec toutes les couches (Terrain + Traces).
     """
     
-    # --- 0. Vérifier la clé API ---
     key_ok, MAPBOX_KEY = check_mapbox_api_key()
-    if not key_ok:
-        return None
+    if not key_ok: return None
 
-    # --- 1. Vérification des données de la trace principale ---
     required_cols_main = ['position_lat', 'position_long', 'altitude']
     if not all(col in df.columns for col in required_cols_main):
-        missing = [col for col in required_cols_main if col not in df.columns]
-        st.warning(f"Données de trace principale manquantes ({', '.join(missing)}) pour la carte 3D.")
+        st.warning("Données de trace principale manquantes.")
         return None
         
     df_map = df[required_cols_main].dropna().copy()
     df_map = df_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
     
     if df_map.empty:
-        st.warning("Données GPS/Altitude invalides pour la carte 3D."); return None
+        st.warning("Données GPS/Altitude invalides."); return None
         
-    # --- 2. Échantillonnage de la trace principale ---
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- 3. Définition des URLs pour le Terrain 3D ---
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.png?access_token={MAPBOX_KEY}"
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
 
@@ -75,40 +67,25 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     
     path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
     layer_main = pdk.Layer(
-        'PathLayer',
-        data=path_data_main,
-        pickable=True,
-        get_color=[255, 69, 0, 255], 
-        width_scale=1,
-        width_min_pixels=3,
-        get_path='path',
-        get_width=5,
+        'PathLayer', data=path_data_main, pickable=True,
+        get_color=[255, 69, 0, 255], width_scale=1,
+        width_min_pixels=3, get_path='path', get_width=5,
         tooltip={"text": "Trace Complète"}
     )
     
     path_data_climbs = prepare_segment_data(climb_segments, required_cols_main)
     layer_climbs = pdk.Layer(
-        'PathLayer',
-        data=path_data_climbs,
-        pickable=True,
-        get_color=[255, 0, 255, 255], 
-        width_scale=1,
-        width_min_pixels=5,
-        get_path='path',
-        get_width=5,
+        'PathLayer', data=path_data_climbs, pickable=True,
+        get_color=[255, 0, 255, 255], width_scale=1,
+        width_min_pixels=5, get_path='path', get_width=5,
         tooltip={"text": "Montée"}
     )
     
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
     layer_sprints = pdk.Layer(
-        'PathLayer',
-        data=path_data_sprints,
-        pickable=True,
-        get_color=[0, 255, 255, 255], 
-        width_scale=1,
-        width_min_pixels=5,
-        get_path='path',
-        get_width=5,
+        'PathLayer', data=path_data_sprints, pickable=True,
+        get_color=[0, 255, 255, 255], width_scale=1,
+        width_min_pixels=5, get_path='path', get_width=5,
         tooltip={"text": "Sprint"}
     )
 
@@ -116,7 +93,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
-    # On définit l'état initial de la caméra
     initial_view_state = pdk.ViewState(
         latitude=mid_lat,
         longitude=mid_lon,
@@ -133,21 +109,10 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
             layer_climbs,
             layer_sprints
         ],
-        
-        # --- CORRECTION FINALE DU BUG 3D ---
-        # On remplace 'initial_view_state' par 'views'
-        # pour forcer l'utilisation du contrôleur 3D (MapController)
-        views=[pdk.View(
-            type="MapView",
-            controller=True, # Active le contrôleur 3D (zoom, pan, pitch, rotate)
-            view_state=initial_view_state # Utilise notre vue centrée
-        )],
-        
+        initial_view_state=initial_view_state,
         api_keys={'mapbox': MAPBOX_KEY},
         tooltip={"text": "{name}"},
-        map_style=None # Corrige le bug de la double carte
-        
-        # On supprime 'width' et 'height', car 'components.html' s'en occupe
+        map_style=None # Pour éviter le conflit de double carte
     )
     
     return deck
