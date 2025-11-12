@@ -18,17 +18,24 @@ def prepare_segment_data(segments, required_cols):
     for segment in segments:
         if not all(col in segment.columns for col in required_cols):
             continue
+            
         segment_map = segment[required_cols].dropna().copy()
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
+        
         if not segment_map.empty:
             sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
+            
             path_data_list.append({
                 "path": segment_sampled[['lon', 'lat', 'altitude']].values.tolist()
             })
     return path_data_list
 
 def create_pydeck_chart(df, climb_segments, sprint_segments):
+    """
+    Crée l'objet pdk.Deck avec toutes les couches (Terrain + Traces).
+    """
+    
     key_ok, MAPBOX_KEY = check_mapbox_api_key()
     if not key_ok: return None
 
@@ -49,7 +56,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.png?access_token={MAPBOX_KEY}"
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
 
-    # --- Couches ---
+    # --- 4. Création des couches (Layers) ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
@@ -82,7 +89,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         tooltip={"text": "Sprint"}
     )
 
-    # --- Vue ---
+    # --- 5. Centrage de la vue ---
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
@@ -94,7 +101,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         bearing=0
     )
 
-    # --- Carte ---
+    # --- 6. Création de la carte Pydeck (Stable) ---
     deck = pdk.Deck(
         layers=[
             terrain_layer,
@@ -102,12 +109,10 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
             layer_climbs,
             layer_sprints
         ],
-        initial_view_state=initial_view_state,
+        initial_view_state=initial_view_state, # On utilise initial_view_state
         api_keys={'mapbox': MAPBOX_KEY},
         tooltip={"text": "{name}"},
-        
-        # --- LA CORRECTION POUR LE BUG DE LA DOUBLE CARTE ---
-        map_style=None #
+        map_style=None # Pour éviter le conflit de double carte
     )
     
     return deck
