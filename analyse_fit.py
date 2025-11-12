@@ -25,7 +25,7 @@ try:
     
     # On importe les 2 fichiers pour la 3D
     from map_3d_engine import create_pydeck_chart 
-    from pydeck_html_wrapper import generate_deck_html # <-- NOUVEL IMPORT
+    from pydeck_html_wrapper import generate_deck_html # <-- IMPORT DU WRAPPER
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
@@ -124,7 +124,7 @@ def main_app():
             col1.metric("Distance Totale", f"{dist_totale_km:.2f} km")
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             col3.metric("Temps de Déplacement", temps_deplacement_str)
-            col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/M/h")
+            col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
             
             st.subheader("Carte du Parcours 2D")
             map_style_options = {"Épuré": "carto-positron", "Rues": "open-street-map", "Sombre": "carto-darkmatter"}
@@ -227,7 +227,7 @@ def main_app():
                          fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
                          st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else: st.warning(f"Segment vide pour sprint {index+1}.")
-                except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(ke)
+                except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(e)
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
@@ -275,7 +275,8 @@ def main_app():
                         sprint_segments_to_plot.append(segment_data)
                     except Exception:
                         pass
-            --
+            
+            # --- BLOC DE RENDU 3D MIS À JOUR (avec diagnostic) ---
             try:
                 # 1. Récupérer la clé API (pour la passer au template HTML)
                 if "MAPBOX_API_KEY" not in st.secrets:
@@ -298,11 +299,8 @@ def main_app():
                     st.warning("Impossible de générer la carte 3D.")
             
             except Exception as e:
-                # --- LA CORRECTION DU DIAGNOSTIC ---
-                # Affiche l'erreur complète (la "traceback") 
-                # directement sur la page de l'application.
+                # --- AFFICHE L'ERREUR PYTHON COMPLÈTE ---
                 st.exception(e)
-                st.error(f"Erreur Pydeck : {e}")
                 
         else:
             st.warning("Données GPS (position_lat/long) non trouvées.")
@@ -310,4 +308,3 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
-
