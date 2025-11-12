@@ -46,16 +46,16 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # Les URL des tuiles incluent le token, comme recommandé [cite: 10-13, 33]
+    # Les URL des tuiles incluent le token, comme recommandé [cite: 9-12, 33]
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.png?access_token={MAPBOX_KEY}"
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
 
     # --- Couches ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
-        elevation_data=TERRAIN_ELEVATION_TILE_URL, # [cite: 10]
-        texture=TERRAIN_TEXTURE_TILE_URL, # [cite: 12]
+        elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -32768},
+        elevation_data=TERRAIN_ELEVATION_TILE_URL, #
+        texture=TERRAIN_TEXTURE_TILE_URL, #
         min_zoom=0
     )
     
@@ -72,16 +72,16 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
-    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0) # [cite: 21]
+    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0) #
 
     # --- Carte ---
     deck = pdk.Deck(
-        layers=[terrain_layer, layer_main, layer_climbs, layer_sprints], # [cite: 23]
-        initial_view_state=initial_view_state, # [cite: 24]
-        api_keys={'mapbox': MAPBOX_KEY}, # [cite: 28]
+        layers=[terrain_layer, layer_main, layer_climbs, layer_sprints], #
+        initial_view_state=initial_view_state, #
+        api_keys={'mapbox': MAPBOX_KEY}, #
         tooltip={"text": "{name}"},
         
-        # --- LA VRAIE CORRECTION (selon ton PDF [cite: 5, 25, 31]) ---
+        # --- LA CORRECTION DU PDF ---
         map_provider=None, 
         map_style=None
     )
