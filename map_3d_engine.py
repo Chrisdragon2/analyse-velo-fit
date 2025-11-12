@@ -45,8 +45,8 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.png?access_token={MAPBOX_KEY}"
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
+    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.png?access_token={MAPBOX_KEY}" [cite: 10]
+    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}" [cite: 12]
 
     # --- Couches ---
     terrain_layer = pdk.Layer(
@@ -55,58 +55,33 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
-    )
+    ) [cite: 7, 8, 9, 10, 11, 12, 13, 14]
     
     path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
-    layer_main = pdk.Layer(
-        'PathLayer', data=path_data_main, pickable=True,
-        get_color=[255, 69, 0, 255], width_scale=1,
-        width_min_pixels=3, get_path='path', get_width=5,
-        tooltip={"text": "Trace Complète"}
-    )
+    layer_main = pdk.Layer('PathLayer', data=path_data_main, pickable=True, get_color=[255, 69, 0, 255], width_scale=1, width_min_pixels=3, get_path='path', get_width=5, tooltip={"text": "Trace Complète"}) [cite: 15, 20]
     
     path_data_climbs = prepare_segment_data(climb_segments, required_cols_main)
-    layer_climbs = pdk.Layer(
-        'PathLayer', data=path_data_climbs, pickable=True,
-        get_color=[255, 0, 255, 255], width_scale=1,
-        width_min_pixels=5, get_path='path', get_width=5,
-        tooltip={"text": "Montée"}
-    )
+    layer_climbs = pdk.Layer('PathLayer', data=path_data_climbs, pickable=True, get_color=[255, 0, 255, 255], width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "Montée"})
     
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
-    layer_sprints = pdk.Layer(
-        'PathLayer', data=path_data_sprints, pickable=True,
-        get_color=[0, 255, 255, 255], width_scale=1,
-        width_min_pixels=5, get_path='path', get_width=5,
-        tooltip={"text": "Sprint"}
-    )
+    layer_sprints = pdk.Layer('PathLayer', data=path_data_sprints, pickable=True, get_color=[0, 255, 255, 255], width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "Sprint"})
 
     # --- Vue ---
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
-    initial_view_state = pdk.ViewState(
-        latitude=mid_lat,
-        longitude=mid_lon,
-        zoom=11,
-        pitch=45,
-        bearing=0
-    )
+    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0) [cite: 17, 21]
 
     # --- Carte ---
     deck = pdk.Deck(
-        layers=[
-            terrain_layer,
-            layer_main,
-            layer_climbs,
-            layer_sprints
-        ],
-        initial_view_state=initial_view_state,
-        api_keys={'mapbox': MAPBOX_KEY},
+        layers=[terrain_layer, layer_main, layer_climbs, layer_sprints], [cite: 23]
+        initial_view_state=initial_view_state, [cite: 24]
+        api_keys={'mapbox': MAPBOX_KEY}, [cite: 28, 33]
         tooltip={"text": "{name}"},
         
-        # --- LA VRAIE CORRECTION (selon ton rapport) ---
-        map_style=None # On supprime 'map_provider=None'
+        # --- LA VRAIE CORRECTION (selon ton rapport ) ---
+        map_provider=None, [cite: 5, 25, 31]
+        map_style=None [cite: 26, 32]
     )
     
     return deck
