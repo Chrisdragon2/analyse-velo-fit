@@ -3,4 +3,4 @@ pandas
 numpy
 fitparse
 plotly
-pydeck
+pydeck==0.8.0
