@@ -46,14 +46,23 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # Configuration des URL de tuiles (correcte)
-    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
+    # --- CORRECTION FINALE : URL MODERNES ---
+    
+    # 1. Utilisation du service d'élévation moderne "terrain-dem-v1"
+    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-dem-v1/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
+    
+    # 2. Utilisation du service satellite moderne "satellite-v9"
+    # Notez que le format est /v1/... et non /v4/
+    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v1/mapbox.satellite-v9/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
-    # --- Couches (correctes) ---
+
+    # --- Couches ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
+        
+        # Le décodeur est le même pour terrain-dem-v1, donc c'est correct
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
+        
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
@@ -68,14 +77,15 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
     layer_sprints = pdk.Layer('PathLayer', data=path_data_sprints, pickable=True, get_color=[0, 255, 255, 255], width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "Sprint"})
 
-    # --- Vue (correcte) ---
+    # --- Vue ---
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
+    
     initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0)
 
-    # --- LA CORRECTION DÉFINITIVE ---
-    # Nous définissons un style Mapbox JSON valide mais vide.
-    # 'map_style=None' ne fonctionne pas, il faut un objet.
+    # --- Carte (Configuration Pydeck Finale - Correcte) ---
+    
+    # Objet style vide pour tuer la carte 2D (nécessaire si map_style=None échoue)
     EMPTY_MAPBOX_STYLE = {
         "version": 8,
         "name": "Empty Style",
@@ -83,21 +93,16 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         "sources": {},
         "layers": []
     }
-
-    # --- Carte ---
+    
     deck = pdk.Deck(
         layers=[terrain_layer, layer_main, layer_climbs, layer_sprints],
         initial_view_state=initial_view_state,
         tooltip={"text": "{name}"},
         
-        # 1. Fournit la clé API
+        # Configuration qui résout le bug pydeck
         api_keys={'mapbox': MAPBOX_KEY}, 
-        
-        # 2. Force le chargement du JS de Mapbox
         map_provider='mapbox',
-        
-        # 3. On passe le style VIDE pour tuer la carte 2D
-        map_style=EMPTY_MAPBOX_STYLE
+        map_style=EMPTY_MAPBOX_STYLE # Utilisation du style vide, plus sûr que 'None'
     )
     
     return deck
