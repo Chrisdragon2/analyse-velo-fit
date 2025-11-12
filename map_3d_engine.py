@@ -106,8 +106,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         tooltip={"text": "{name}"},
         
         # --- LA VRAIE CORRECTION (selon ton rapport) ---
-        map_provider=None, # Désactive la carte 2D
-        map_style=None
+        map_style=None # On supprime 'map_provider=None'
     )
     
     return deck
