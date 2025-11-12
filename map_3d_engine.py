@@ -1,4 +1,3 @@
-# map_3d_engine.py
 import streamlit as st
 import pydeck as pdk
 import pandas as pd
@@ -7,7 +6,7 @@ import numpy as np
 # Fonction pour vérifier la clé API Mapbox
 def check_mapbox_api_key():
     if "MAPBOX_API_KEY" not in st.secrets:
-        st.error("Clé API Mapbox non trouvée...")
+        st.error("Clé API Mapbox non trouvée.")
         return False, None
     return True, st.secrets["MAPBOX_API_KEY"]
 
@@ -20,6 +19,7 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment[required_cols].dropna().copy()
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         if not segment_map.empty:
+            # Réduction de l'échantillonnage pour la performance
             sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
             path_data_list.append({
@@ -46,23 +46,20 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- CORRECTION FINALE : URL MODERNES ---
-    
-    # 1. Utilisation du service d'élévation moderne "terrain-dem-v1"
+    # --- URL DES TUILES MODERNES (Résout le 403 Forbidden) ---
+    # Utilisation du service d'élévation moderne "terrain-dem-v1"
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-dem-v1/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
     
-    # 2. Utilisation du service satellite moderne "satellite-v9"
-    # Notez que le format est /v1/... et non /v4/
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v1/mapbox.satellite-v9/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
+    # Utilisation du service satellite moderne "satellite-v9"
+    # Note: L'endpoint ici est bien /v1/
+    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v1/mapbox.satellite-v9/tiles/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
 
-    # --- Couches ---
+    # --- COUCHES ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        
-        # Le décodeur est le même pour terrain-dem-v1, donc c'est correct
+        # Décodeur correct pour terrain-dem-v1
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
-        
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
@@ -77,15 +74,13 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
     layer_sprints = pdk.Layer('PathLayer', data=path_data_sprints, pickable=True, get_color=[0, 255, 255, 255], width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "Sprint"})
 
-    # --- Vue ---
+    # --- VUE ---
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
     initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0)
 
-    # --- Carte (Configuration Pydeck Finale - Correcte) ---
-    
-    # Objet style vide pour tuer la carte 2D (nécessaire si map_style=None échoue)
+    # --- STYLE MAPBOX VIDE (Résout le bug du style par défaut) ---
     EMPTY_MAPBOX_STYLE = {
         "version": 8,
         "name": "Empty Style",
@@ -93,16 +88,18 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         "sources": {},
         "layers": []
     }
-    
+
+    # --- CARTE PYDECK FINALE ---
     deck = pdk.Deck(
         layers=[terrain_layer, layer_main, layer_climbs, layer_sprints],
         initial_view_state=initial_view_state,
         tooltip={"text": "{name}"},
         
-        # Configuration qui résout le bug pydeck
+        # Configuration qui résout les bugs pydeck/streamlit
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
-        map_style=EMPTY_MAPBOX_STYLE # Utilisation du style vide, plus sûr que 'None'
+        # On utilise le style JSON vide pour désactiver le fond de carte 2D
+        map_style=EMPTY_MAPBOX_STYLE 
     )
     
     return deck
