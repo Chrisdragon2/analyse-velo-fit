@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.colors              
 import io 
 import pydeck as pdk 
-import streamlit.components.v1 as components # <-- NÉCESSAIRE
+# On supprime 'components' et 'json'
 
 # --- Importations depuis les modules ---
 try:
@@ -21,14 +21,12 @@ try:
     from sprint_detector import detect_sprints
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
-    
-    # On importe juste le moteur 3D
     from map_3d_engine import create_pydeck_chart 
-    # On n'importe PAS pydeck_html_wrapper
+    # On supprime 'pydeck_html_wrapper'
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
-
+    
 # --- Fonction simplifiée pour estimer Crr ---
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
@@ -230,7 +228,7 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
-    # --- Onglet 5: Carte 3D (Pydeck) ---
+# --- Onglet 5: Carte 3D (Pydeck) ---
     with tab_3d_map:
         st.header("Carte 3D (Vue Satellite)")
         
@@ -239,7 +237,7 @@ def main_app():
         
         elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
-            # Cases à cocher pour les highlights
+            # ... (Ton code pour les checkboxes et la préparation des données) ...
             col1, col2 = st.columns(2)
             with col1:
                 show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
@@ -247,9 +245,9 @@ def main_app():
                 show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
             st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
             
-            # Préparation des données pour les highlights
             climb_segments_to_plot = []
             if show_climbs and montees_grouped is not None:
+                # ... (ton code pour remplir climb_segments_to_plot) ...
                 processed_results_count = 0
                 montee_ids = list(montees_grouped.groups.keys())
                 for nom_bloc in montee_ids:
@@ -274,19 +272,15 @@ def main_app():
                     except Exception:
                         pass
             
-            # --- BLOC DE RENDU 3D MIS À JOUR (selon Sec 3.2) ---
+            # --- BLOC DE RENDU 3D (RETOUR À LA NORMALE) ---
             try:
                 # 1. Créer l'objet Pydeck
-                pydeck_deck_object = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
+                pydeck_chart = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
-                if pydeck_deck_object:
+                if pydeck_chart:
                     
-                    # 2. Convertir en HTML. pydeck==0.8.0 injectera
-                    #    automatiquement le JS deck.gl v8.8
-                    final_html = pydeck_deck_object.to_html(as_string=True)
-                    
-                    # 3. Rendre le HTML dans le composant
-                    components.html(final_html, height=600, scrolling=False)
+                    # 2. Utiliser st.pydeck_chart natif
+                    st.pydeck_chart(pydeck_chart, use_container_width=True)
                     
                 else:
                     st.warning("Impossible de générer la carte 3D.")
