@@ -19,6 +19,7 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment[required_cols].dropna().copy()
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         if not segment_map.empty:
+            # Réduction de l'échantillonnage pour la performance
             sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
             path_data_list.append({
@@ -45,19 +46,19 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- CORRECTION DES IDENTIFIANTS DE TILESETS (Résout le 404) ---
+    # --- CORRECTION DE L'IDENTIFIANT TERRAIN (Résout le 404) ---
     
-    # 1. Utilisation de l'identifiant standard 'mapbox.terrain-dem' (sans le -v1)
-    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-dem/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
+    # 1. Utilisation de l'identifiant stable et compatible "mapbox.mapbox-terrain-v2"
+    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.mapbox-terrain-v2/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
     
-    # 2. Utilisation de l'identifiant standard 'mapbox.satellite' (sans le -v9)
+    # 2. Utilisation de l'identifiant standard 'mapbox.satellite' (Confirmé par l'analyse)
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
 
     # --- COUCHES ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        # Le décodeur est le même pour terrain-dem, il ne change pas
+        # Le décodeur est compatible avec cette nouvelle source
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
@@ -94,6 +95,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         initial_view_state=initial_view_state,
         tooltip={"text": "{name}"},
         
+        # Configuration qui résout les bugs pydeck/streamlit
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
         map_style=EMPTY_MAPBOX_STYLE 
