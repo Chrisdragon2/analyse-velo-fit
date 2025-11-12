@@ -46,17 +46,16 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- CORRECTION FINALE (selon ton PDF) ---
-    # Les URL des tuiles incluent le token 
+    # Les URL des tuiles incluent toujours le token
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.png?access_token={MAPBOX_KEY}"
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
 
-    # --- Couches ---
+    # --- Couches (inchangées) ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -32768},
-        elevation_data=TERRAIN_ELEVATION_TILE_URL, # [cite: 10]
-        texture=TERRAIN_TEXTURE_TILE_URL, # [cite: 12]
+        elevation_data=TERRAIN_ELEVATION_TILE_URL,
+        texture=TERRAIN_TEXTURE_TILE_URL,
         min_zoom=0
     )
     
@@ -69,22 +68,28 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
     layer_sprints = pdk.Layer('PathLayer', data=path_data_sprints, pickable=True, get_color=[0, 255, 255, 255], width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "Sprint"})
 
-    # --- Vue ---
+    # --- Vue (inchangée) ---
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
-    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0) # [cite: 21]
+    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0)
 
-    # --- Carte ---
+    # --- Carte (La section corrigée) ---
     deck = pdk.Deck(
-        layers=[terrain_layer, layer_main, layer_climbs, layer_sprints], # [cite: 23]
-        initial_view_state=initial_view_state, # [cite: 24]
-        api_keys={'mapbox': MAPBOX_KEY}, # [cite: 28, 33]
+        layers=[terrain_layer, layer_main, layer_climbs, layer_sprints],
+        initial_view_state=initial_view_state,
         tooltip={"text": "{name}"},
         
-        # --- CORRECTION FINALE (selon ton PDF) ---
-        map_provider=None, # [cite: 25, 31]
-        map_style=None # [cite: 26, 32]
+        # --- VOICI LA CORRECTION ---
+        
+        # 1. Fournit la clé à l'instance Deck.gl pour charger le JS
+        mapbox_key=MAPBOX_KEY, 
+        
+        # 2. Force le chargement du JavaScript de Mapbox (pour TerrainLayer)
+        map_provider='mapbox',
+        
+        # 3. Cache la carte 2D de base (pour éviter la double carte)
+        map_style=None 
     )
     
     return deck
