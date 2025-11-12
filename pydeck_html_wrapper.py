@@ -46,7 +46,11 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
         // 1. Recevoir la spécification JSON injectée depuis Python
         // CORRECTION SYNTAXE (Point 3)
         // On utilise JSON.parse() pour convertir la chaîne en objet
-        const pydeckSpec = JSON.parse({deck_json_string_for_js});
+        
+        // --- LA VOICI : LA CORRECTION ---
+        // On utilise des backticks (`) pour que JavaScript reçoive
+        // JSON.parse('...chaine json...')
+        const pydeckSpec = JSON.parse(`{deck_json_string_for_js}`);
 
         // 2. Instancier Deck.gl CORRECTEMENT
         const deckInstance = new deck.Deck({{
