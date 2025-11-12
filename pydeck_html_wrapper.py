@@ -1,4 +1,4 @@
-# --- Fichier: pydeck_html_wrapper.py (Corrigé) ---
+# --- Fichier: pydeck_html_wrapper.py (Corrigé pour la ValueError) ---
 import streamlit as st
 import pydeck as pdk
 import json 
@@ -15,7 +15,6 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
     deck_json = pydeck_object.to_json()
     
     # 2. Le dumper en une chaîne JSON valide.
-    # C'est la source de données pour JavaScript.
     deck_json_string = json.dumps(deck_json)
 
     # 3. Définir le template HTML/JS
@@ -28,9 +27,7 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script src="https://unpkg.com/deck.gl@8.8.0/dist.min.js"></script>
-    
     <script src="https://unpkg.com/@deck.gl/json@8.8.0/dist.min.js"></script>
-    
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.css" rel="stylesheet" />
     
@@ -42,23 +39,22 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
 <body style="margin:0; padding:0; height:100vh; width:100%;">
     <div id="deck-gl-map"></div>
 
+    <script id="pydeck-spec-data" type="application/json">
+    {deck_json_string}
+    </script>
+
     <script type="text/javascript">
         mapboxgl.accessToken = "{mapbox_key}";
 
         // --- SECTION JAVASCRIPT CORRIGÉE ---
         
-        // 2. RÉCUPÉRER LA SPÉCIFICATION JSON DEPUIS PYTHON
-        // On passe la chaîne JSON brute (deck_json_string) dans 
-        // l'appel JSON.parse().
-        // L'f-string Python va wrapper la chaîne avec des apostrophes :
-        // JSON.parse('{"layers": ...}')
-        // C'est la syntaxe JS correcte pour parser une chaîne.
-        const pydeckSpec = JSON.parse({deck_json_string});
+        // NOUVELLE ÉTAPE 2 : LIRE LE JSON DEPUIS LA BALISE SCRIPT
+        const pydeckSpecJSON = document.getElementById('pydeck-spec-data').textContent;
+        const pydeckSpec = JSON.parse(pydeckSpecJSON);
 
         // 3. INSTANCIER LE JSONCONVERTER
-        // On crée un nouveau convertisseur et on lui donne
-        // l'objet global 'deck' (chargé par dist.min.js) 
-        // comme dictionnaire de "classes" à utiliser.
+        // CORRECTION : Notez les accolades doublées {{ ... }}
+        // C'est nécessaire pour le f-string de Python.
         const jsonConverter = new deck.JSONConverter({{
             configuration: {{
                 // Cela dit au convertisseur : "Quand tu vois 'TerrainLayer',
@@ -68,11 +64,10 @@ def generate_deck_html(pydeck_object: pdk.Deck, mapbox_key: str) -> str:
         }});
 
         // 4. CONVERTIR LA SPÉCIFICATION JSON EN PROPS DECK.GL
-        // C'est l'étape magique. Le convertisseur "gonfle" 
-        // le JSON en véritables objets de classe JS.
         const deckProps = jsonConverter.convert(pydeckSpec);
 
         // 5. INSTANCIER DECK.GL AVEC LES BONNES PROPS
+        // CORRECTION : accolades doublées {{ ... }} ici aussi.
         const deckInstance = new deck.Deck({{
             // On 'spread' les props converties (layers, views, etc.)
             ...deckProps,
