@@ -45,19 +45,19 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- CORRECTION FINALE DU CHEMIN D'API (Résout le 404 Not Found) ---
+    # --- CORRECTION DES IDENTIFIANTS DE TILESETS (Résout le 404) ---
     
-    # ÉLÉVATION: Utilise le format /v4/ (Correct)
-    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-dem-v1/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
+    # 1. Utilisation de l'identifiant standard 'mapbox.terrain-dem' (sans le -v1)
+    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-dem/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
     
-    # TEXTURE: Changement de l'endpoint de /v1/.../tiles/ à /v4/ (Ceci résout le 404)
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite-v9/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
+    # 2. Utilisation de l'identifiant standard 'mapbox.satellite' (sans le -v9)
+    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
 
     # --- COUCHES ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        # Décodeur correct pour terrain-dem-v1
+        # Le décodeur est le même pour terrain-dem, il ne change pas
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
@@ -94,7 +94,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         initial_view_state=initial_view_state,
         tooltip={"text": "{name}"},
         
-        # Configuration qui résout les bugs pydeck/streamlit
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
         map_style=EMPTY_MAPBOX_STYLE 
