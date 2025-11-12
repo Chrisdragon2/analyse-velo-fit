@@ -285,8 +285,7 @@ def main_app():
                     # 2. NOUVELLE MÉTHODE : Utiliser la fonction .to_html()
                     # Pydeck génère lui-même le HTML avec les contrôles 3D
                     final_html = pydeck_deck_object.to_html(
-                        as_string=True, 
-                        mapbox_key=st.secrets["MAPBOX_API_KEY"]
+                        as_string=True
                     )
                     
                     # 3. Rendre le HTML dans le composant Streamlit
@@ -305,3 +304,4 @@ def main_app():
 # Point d'entrée
 if __name__ == "__main__":
     main_app()
+
