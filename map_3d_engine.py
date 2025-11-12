@@ -19,7 +19,6 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment[required_cols].dropna().copy()
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         if not segment_map.empty:
-            # Réduction de l'échantillonnage pour la performance
             sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
             path_data_list.append({
@@ -46,13 +45,13 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- URL DES TUILES MODERNES (Résout le 403 Forbidden) ---
-    # Utilisation du service d'élévation moderne "terrain-dem-v1"
+    # --- CORRECTION FINALE DU CHEMIN D'API (Résout le 404 Not Found) ---
+    
+    # ÉLÉVATION: Utilise le format /v4/ (Correct)
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-dem-v1/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
     
-    # Utilisation du service satellite moderne "satellite-v9"
-    # Note: L'endpoint ici est bien /v1/
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v1/mapbox.satellite-v9/tiles/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
+    # TEXTURE: Changement de l'endpoint de /v1/.../tiles/ à /v4/ (Ceci résout le 404)
+    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite-v9/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
 
     # --- COUCHES ---
@@ -80,7 +79,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     
     initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0)
 
-    # --- STYLE MAPBOX VIDE (Résout le bug du style par défaut) ---
+    # --- STYLE MAPBOX VIDE (Configuration Anti-Bug) ---
     EMPTY_MAPBOX_STYLE = {
         "version": 8,
         "name": "Empty Style",
@@ -98,7 +97,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         # Configuration qui résout les bugs pydeck/streamlit
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
-        # On utilise le style JSON vide pour désactiver le fond de carte 2D
         map_style=EMPTY_MAPBOX_STYLE 
     )
     
