@@ -5,8 +5,7 @@ import plotly.graph_objects as go
 import plotly.colors              
 import io 
 import pydeck as pdk 
-import streamlit.components.v1 as components
-import json # Importé pour la sérialisation
+import streamlit.components.v1 as components # <-- NÉCESSAIRE
 
 # --- Importations depuis les modules ---
 try:
@@ -23,9 +22,9 @@ try:
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
     
-    # On importe les 2 fichiers pour la 3D
+    # On importe juste le moteur 3D
     from map_3d_engine import create_pydeck_chart 
-    from pydeck_html_wrapper import generate_deck_html # <-- NOUVEL IMPORT
+    # On n'importe PAS pydeck_html_wrapper
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
@@ -216,7 +215,7 @@ def main_app():
                     start_timestamp = sprint_info['Début']
                     if not isinstance(start_timestamp, pd.Timestamp): st.warning(f"Format début incorrect sprint {index+1}."); continue
                     try: duration_float = float(sprint_info['Durée (s)'])
-                    except (ValueError, TypeError): st.warning(f"Format durée incorrect sprint {index+1}."); continue
+                    except (ValueError, TypeError): st.warning(f"Format durée incorrect sprint {index+C1}."); continue
                     end_timestamp = start_timestamp + pd.Timedelta(seconds=duration_float)
                     if start_timestamp in df_analyzed.index and end_timestamp <= df_analyzed.index[-1]:
                          df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
@@ -231,7 +230,7 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
-# --- Onglet 5: Carte 3D (Pydeck) ---
+    # --- Onglet 5: Carte 3D (Pydeck) ---
     with tab_3d_map:
         st.header("Carte 3D (Vue Satellite)")
         
@@ -240,7 +239,7 @@ def main_app():
         
         elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
-            # ... (Ton code pour les checkboxes et la préparation des données) ...
+            # Cases à cocher pour les highlights
             col1, col2 = st.columns(2)
             with col1:
                 show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
@@ -248,6 +247,7 @@ def main_app():
                 show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
             st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
             
+            # Préparation des données pour les highlights
             climb_segments_to_plot = []
             if show_climbs and montees_grouped is not None:
                 processed_results_count = 0
@@ -274,23 +274,18 @@ def main_app():
                     except Exception:
                         pass
             
-            # --- BLOC DE RENDU 3D MIS À JOUR (selon Sec 4.2) ---
+            # --- BLOC DE RENDU 3D MIS À JOUR (selon Sec 3.2) ---
             try:
-                # 1. Récupérer la clé API (pour la passer au template HTML)
-                if "MAPBOX_API_KEY" not in st.secrets:
-                     st.error("Clé API Mapbox non trouvée dans st.secrets pour le wrapper HTML.")
-                     st.stop()
-                MAPBOX_API_KEY = st.secrets["MAPBOX_API_KEY"]
-                
-                # 2. Créer l'objet Pydeck (comme avant)
+                # 1. Créer l'objet Pydeck
                 pydeck_deck_object = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
                 if pydeck_deck_object:
                     
-                    # 3. Générer le HTML final à l'aide du wrapper
-                    final_html = generate_deck_html(pydeck_deck_object, MAPBOX_API_KEY)
+                    # 2. Convertir en HTML. pydeck==0.8.0 injectera
+                    #    automatiquement le JS deck.gl v8.8
+                    final_html = pydeck_deck_object.to_html(as_string=True)
                     
-                    # 4. Rendre le HTML dans le composant Streamlit
+                    # 3. Rendre le HTML dans le composant
                     components.html(final_html, height=600, scrolling=False)
                     
                 else:
