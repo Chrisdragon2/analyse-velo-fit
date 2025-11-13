@@ -50,23 +50,23 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- IDENTIFIANTS TERRAIN ---
+    # --- IDENTIFIANTS TERRAIN (Source AWS stable) ---
     
-    # 1. ÉLÉVATION (Source AWS Terrarium - Pas besoin de clé API ici)
+    # 1. ÉLÉVATION (Source AWS Terrarium)
     TERRAIN_ELEVATION_TILE_URL = TERRARIUM_ELEVATION_TILE_URL
     
-    # 2. TEXTURE (Source Mapbox Satellite, nécessite la clé API)
+    # 2. TEXTURE (Source Mapbox Satellite)
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
 
     # --- COUCHES ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        # ATTENTION : Utilisation du décodeur adapté à la source AWS Terrarium
         elevation_decoder=ELEVATION_DECODER_TERRARIUM,
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL, 
-        min_zoom=0
+        min_zoom=0,
+        max_zoom=15  # <--- MODIFICATION 1 : Informe la couche que les données s'arrêtent à 15
     )
     
     path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
@@ -82,7 +82,15 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
-    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=60, bearing=140) # Vue plus penchée
+    initial_view_state = pdk.ViewState(
+        latitude=mid_lat, 
+        longitude=mid_lon, 
+        zoom=11, 
+        pitch=60, 
+        bearing=140
+        # <--- MODIFICATION 2 : On NE limite PAS le max_zoom ici
+        # L'utilisateur peut zoomer, la couche 15 sera étirée (zoom flou)
+    )
 
     # --- CARTE PYDECK FINALE ---
     deck = pdk.Deck(
@@ -90,10 +98,8 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         initial_view_state=initial_view_state,
         tooltip={"text": "{name}"},
         
-        # Le Token Mapbox est toujours nécessaire pour la texture et l'initialisation JS
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
-        # On utilise le style satellite Mapbox pour le fond de carte/texture
         map_style='mapbox://styles/mapbox/satellite-v9' 
     )
     
