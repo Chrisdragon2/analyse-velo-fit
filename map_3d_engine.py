@@ -24,8 +24,15 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment[required_cols].dropna().copy()
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         if not segment_map.empty:
-            sampling_rate_seg = max(1, len(segment_map) // 500)
-            segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
+            sampling_rate_seg = 1 # On prend tous les points
+            
+            # On doit utiliser .copy() pour éviter un avertissement
+            segment_sampled = segment_map.iloc[::sampling_rate_seg, :].copy() 
+            
+            # --- CORRECTION Z-FIGHTING (Segments) ---
+            # On surélève la trace de 3 mètres pour éviter qu'elle ne s'enfonce dans le sol
+            segment_sampled['altitude'] = segment_sampled['altitude'] + 3
+            
             path_data_list.append({
                 "path": segment_sampled[['lon', 'lat', 'altitude']].values.tolist()
             })
@@ -47,15 +54,18 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     if df_map.empty:
         st.warning("Données GPS/Altitude invalides."); return None
         
-    sampling_rate = max(1, len(df_map) // 1000)
-    df_sampled = df_map.iloc[::sampling_rate, :].copy()
+    # On garde l'échantillonnage de la trace principale pour la performance
+    sampling_rate = max(1, len(df_map) // 10000) # (10000 est mieux que 5000)
+    
+    # On doit utiliser .copy() pour éviter un avertissement
+    df_sampled = df_map.iloc[::sampling_rate, :].copy() 
+
+    # --- CORRECTION Z-FIGHTING (Trace principale) ---
+    # On surélève la trace de 3 mètres
+    df_sampled['altitude'] = df_sampled['altitude'] + 3
 
     # --- IDENTIFIANTS TERRAIN (Source AWS stable) ---
-    
-    # 1. ÉLÉVATION (Source AWS Terrarium)
     TERRAIN_ELEVATION_TILE_URL = TERRARIUM_ELEVATION_TILE_URL
-    
-    # 2. TEXTURE (Source Mapbox Satellite)
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
 
@@ -66,7 +76,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL, 
         min_zoom=0,
-        max_zoom=15  # <--- MODIFICATION 1 : Informe la couche que les données s'arrêtent à 15
+        max_zoom=15  # Gère le "zoom flou"
     )
     
     path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
@@ -88,8 +98,6 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         zoom=11, 
         pitch=60, 
         bearing=140
-        # <--- MODIFICATION 2 : On NE limite PAS le max_zoom ici
-        # L'utilisateur peut zoomer, la couche 15 sera étirée (zoom flou)
     )
 
     # --- CARTE PYDECK FINALE ---
