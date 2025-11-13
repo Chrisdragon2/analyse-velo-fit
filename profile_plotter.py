@@ -4,8 +4,7 @@ import pandas as pd
 import plotly.colors
 import streamlit as st
 
-# --- NOUVELLE PALETTE DE COULEURS ---
-# Bleu -> Vert -> Jaune -> Rouge (plus classique)
+# Palette (Bleu -> Vert -> Jaune -> Rouge -> Noir)
 PROFILE_COLORSCALE = [
     [0.0, 'rgb(0, 100, 255)'],  # 0% (Bleu)
     [0.15, 'rgb(0, 128, 0)'],  # 3% (Vert)
@@ -34,7 +33,6 @@ def create_full_ride_profile(df):
         st.warning("Données invalides pour le profil."); return go.Figure()
 
     # --- 2. Échantillonnage pour la performance ---
-    # On peut se permettre d'être plus précis maintenant
     sampling_rate = max(1, len(df_profile) // 4000) 
     df_sampled = df_profile.iloc[::sampling_rate, :].copy()
     
@@ -44,31 +42,25 @@ def create_full_ride_profile(df):
     if 'speed_kmh' not in df_sampled.columns and 'speed' in df_sampled.columns:
          df_sampled['speed_kmh'] = df_sampled['speed'] * 3.6
 
-    # Normaliser la pente pour la couleur (en gardant les descentes)
-    # On normalise de -20% à +20%
-    df_sampled['pente_norm'] = (df_sampled['pente'].clip(-PENTE_ECHELLE_MAX, PENTE_ECHELLE_MAX) + PENTE_ECHELLE_MAX) / (2 * PENTE_ECHELLE_MAX)
-    # Pour l'échelle de couleur, on ne prend que les positifs (0.5 à 1.0)
+    # Normaliser la pente pour la couleur (0.0 à 1.0)
     df_sampled['pente_color_norm'] = (df_sampled['pente'].clip(0, PENTE_ECHELLE_MAX) / PENTE_ECHELLE_MAX)
 
 
     fig = go.Figure()
 
     # --- 3. Trace 1: Le Remplissage "Premium" ---
-    # On utilise une couleur bleu-gris foncée semi-transparente
     fig.add_trace(go.Scatter(
         x=df_sampled['distance'],
         y=df_sampled['altitude'],
         mode='lines',
-        line=dict(width=0, color='rgba(0,0,0,0)'), # Ligne invisible
-        fill='tozeroy', # Remplissage jusqu'à 0
-        fillcolor='rgba(50, 50, 80, 0.2)', # NOUVELLE COULEUR DE FOND
+        line=dict(width=0, color='rgba(0,0,0,0)'),
+        fill='tozeroy', 
+        fillcolor='rgba(50, 50, 80, 0.2)', 
         hoverinfo='none',
         showlegend=False
     ))
 
     # --- 4. TRACE 2: La Ligne de Profil Principale (Gradient Continu) ---
-    # Fini la boucle ! On combine l'ancienne "Trace 2" et "Trace 3" en une seule.
-    # Elle gère la ligne colorée ET le hover.
     
     custom_data_cols = [
         df_sampled['pente'].fillna(0),
@@ -98,8 +90,8 @@ def create_full_ride_profile(df):
         mode='lines',
         line=dict(
             width=3, 
-            color=df_sampled['pente_color_norm'], # <-- On passe le tableau de pentes
-            colorscale=PROFILE_COLORSCALE,    # <-- On passe la palette
+            color=df_sampled['pente_color_norm'].values, # <--- CORRECTION ICI
+            colorscale=PROFILE_COLORSCALE,    
             cmin=0.0,
             cmax=1.0
         ),
@@ -111,7 +103,7 @@ def create_full_ride_profile(df):
     # --- 5. Mise en Forme ---
     fig.update_layout(
         title="Profil Complet de la Sortie",
-        template="plotly_white", # Thème épuré
+        template="plotly_white", 
         xaxis_title="Distance (m)",
         yaxis_title="Altitude (m)",
         hovermode='x unified',
