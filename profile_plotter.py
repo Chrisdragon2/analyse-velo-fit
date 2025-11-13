@@ -1,23 +1,24 @@
-# profile_plotter.py
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 import plotly.colors
 import streamlit as st
 
-# Palette de couleurs (Vert -> Jaune -> Orange -> Rouge -> Noir)
+# --- NOUVELLE PALETTE DE COULEURS ---
+# Bleu -> Vert -> Jaune -> Rouge (plus classique)
 PROFILE_COLORSCALE = [
-    [0.0, 'rgb(0,128,0)'],   # 0%
-    [0.25, 'rgb(255,255,0)'], # 5%
-    [0.5, 'rgb(255,0,0)'],   # 10%
-    [1.0, 'rgb(0,0,0)']      # 20%
+    [0.0, 'rgb(0, 100, 255)'],  # 0% (Bleu)
+    [0.15, 'rgb(0, 128, 0)'],  # 3% (Vert)
+    [0.3, 'rgb(255, 255, 0)'], # 6% (Jaune)
+    [0.5, 'rgb(255, 0, 0)'],   # 10% (Rouge)
+    [1.0, 'rgb(0, 0, 0)']      # 20% (Noir)
 ]
 PENTE_ECHELLE_MAX = 20.0 
 
 def create_full_ride_profile(df):
     """
     Crée un profil d'altitude 2D de toute la sortie, "Strava-style"
-    AVEC l'effet d'ombre/relief.
+    AVEC l'effet d'ombre/relief et un gradient continu.
     """
     
     df_profile = df.copy()
@@ -33,7 +34,8 @@ def create_full_ride_profile(df):
         st.warning("Données invalides pour le profil."); return go.Figure()
 
     # --- 2. Échantillonnage pour la performance ---
-    sampling_rate = max(1, len(df_profile) // 3000)
+    # On peut se permettre d'être plus précis maintenant
+    sampling_rate = max(1, len(df_profile) // 4000) 
     df_sampled = df_profile.iloc[::sampling_rate, :].copy()
     
     if df_sampled.empty:
@@ -42,52 +44,32 @@ def create_full_ride_profile(df):
     if 'speed_kmh' not in df_sampled.columns and 'speed' in df_sampled.columns:
          df_sampled['speed_kmh'] = df_sampled['speed'] * 3.6
 
+    # Normaliser la pente pour la couleur (en gardant les descentes)
+    # On normalise de -20% à +20%
+    df_sampled['pente_norm'] = (df_sampled['pente'].clip(-PENTE_ECHELLE_MAX, PENTE_ECHELLE_MAX) + PENTE_ECHELLE_MAX) / (2 * PENTE_ECHELLE_MAX)
+    # Pour l'échelle de couleur, on ne prend que les positifs (0.5 à 1.0)
+    df_sampled['pente_color_norm'] = (df_sampled['pente'].clip(0, PENTE_ECHELLE_MAX) / PENTE_ECHELLE_MAX)
+
+
     fig = go.Figure()
 
-    # --- 3. Trace 1: L'Effet d'Ombre (Relief) ---
-    # On la dessine en premier (en arrière-plan)
+    # --- 3. Trace 1: Le Remplissage "Premium" ---
+    # On utilise une couleur bleu-gris foncée semi-transparente
     fig.add_trace(go.Scatter(
-        x=df_sampled['distance'] + 50, # Décalage léger sur la distance (droite)
-        y=df_sampled['altitude'] - 5,   # Décalage léger sur l'altitude (bas)
+        x=df_sampled['distance'],
+        y=df_sampled['altitude'],
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'), # Ligne invisible
         fill='tozeroy', # Remplissage jusqu'à 0
-        fillcolor='rgba(0,0,0,0.08)', # Ombre gris très légère
+        fillcolor='rgba(50, 50, 80, 0.2)', # NOUVELLE COULEUR DE FOND
         hoverinfo='none',
         showlegend=False
     ))
 
-    # --- 4. Trace 2: La Ligne de Profil Principale (colorée par pente) ---
-    # On utilise la méthode "Lignes par Chunks"
+    # --- 4. TRACE 2: La Ligne de Profil Principale (Gradient Continu) ---
+    # Fini la boucle ! On combine l'ancienne "Trace 2" et "Trace 3" en une seule.
+    # Elle gère la ligne colorée ET le hover.
     
-    CHUNK_DISTANCE_PROFILE = 250 # Couleur change tous les 250m
-    df_sampled['distance_bin'] = (df_sampled['distance'] // CHUNK_DISTANCE_PROFILE) * CHUNK_DISTANCE_PROFILE
-    
-    try: grouped = df_sampled.groupby('distance_bin', observed=True)
-    except TypeError: grouped = df_sampled.groupby('distance_bin')
-        
-    plotly_colorscale = PROFILE_COLORSCALE
-
-    for name, group in grouped:
-        if group.empty: continue
-        
-        avg_pente = group['pente'].mean()
-        
-        # Normaliser la pente (de 0% à 20% -> 0.0 à 1.0)
-        pente_norm_pos = max(0, avg_pente) # Ne colore que les pentes positives
-        pente_norm = max(0.00001, min(0.99999, (pente_norm_pos / PENTE_ECHELLE_MAX)))
-        segment_color_rgb_str = plotly.colors.sample_colorscale(plotly_colorscale, pente_norm)[0]
-
-        fig.add_trace(go.Scatter(
-            x=group['distance'],
-            y=group['altitude'],
-            mode='lines',
-            line=dict(width=3, color=segment_color_rgb_str), # Ligne épaisse
-            hoverinfo='none',
-            showlegend=False
-        ))
-
-    # --- 5. La Couche Tooltip (Invisible) ---
     custom_data_cols = [
         df_sampled['pente'].fillna(0),
         df_sampled['speed_kmh'].fillna(0)
@@ -101,7 +83,7 @@ def create_full_ride_profile(df):
         df_sampled['estimated_power'] = df_sampled['estimated_power'].fillna(0)
         custom_data_cols.append(df_sampled['estimated_power'])
         hovertemplate_str += f"<b>Puissance Est.:</b> %{{customdata[{len(custom_data_cols)-1}]:.0f}} W<br>"
-            
+         
     if 'heart_rate' in df_sampled.columns:
         df_sampled['heart_rate'] = df_sampled['heart_rate'].fillna(0)
         custom_data_cols.append(df_sampled['heart_rate'])
@@ -114,13 +96,19 @@ def create_full_ride_profile(df):
         x=df_sampled['distance'],
         y=df_sampled['altitude'],
         mode='lines',
-        line=dict(width=0, color='rgba(0,0,0,0)'),
+        line=dict(
+            width=3, 
+            color=df_sampled['pente_color_norm'], # <-- On passe le tableau de pentes
+            colorscale=PROFILE_COLORSCALE,    # <-- On passe la palette
+            cmin=0.0,
+            cmax=1.0
+        ),
         showlegend=False,
         customdata=final_customdata,
         hovertemplate=hovertemplate_str
     ))
 
-    # --- 6. Mise en Forme ---
+    # --- 5. Mise en Forme ---
     fig.update_layout(
         title="Profil Complet de la Sortie",
         template="plotly_white", # Thème épuré
