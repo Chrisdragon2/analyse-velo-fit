@@ -19,7 +19,6 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment[required_cols].dropna().copy()
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         if not segment_map.empty:
-            # Réduction de l'échantillonnage pour la performance
             sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
             path_data_list.append({
@@ -46,19 +45,19 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- CORRECTION DE L'IDENTIFIANT TERRAIN (Résout le 404) ---
-    
-    # 1. Utilisation de l'identifiant stable et compatible "mapbox.mapbox-terrain-v2"
+    # --- ÉLÉVATION (Mapbox - Nécessite le Token) ---
+    # Utilisation de l'identifiant le plus stable pour les données d'élévation
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.mapbox-terrain-v2/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
     
-    # 2. Utilisation de l'identifiant standard 'mapbox.satellite' (Confirmé par l'analyse)
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
+    # --- TEXTURE (Contournement OSM/Stamen - Aucune Clé Requis) ---
+    # Ceci garantit que l'image de fond se charge correctement.
+    TERRAIN_TEXTURE_TILE_URL = "http://tile.stamen.com/watercolor/{z}/{x}/{y}.jpg"
 
 
     # --- COUCHES ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        # Le décodeur est compatible avec cette nouvelle source
+        # Le décodeur est compatible R/G/B
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL,
