@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go 
-import plotly.colors              
+import plotly.colors           
 import io 
 import pydeck as pdk 
 import streamlit.components.v1 as components # <-- NÉCESSAIRE
@@ -181,13 +181,13 @@ def main_app():
         if montees_grouped is not None and not resultats_df.empty:
             processed_results_count = 0; montee_ids = list(montees_grouped.groups.keys()); valid_climb_data = []
             for nom_bloc in montee_ids:
-                 segment = montees_grouped.get_group(nom_bloc)
-                 if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
-                 distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
-                 if distance_segment >= min_climb_distance:
-                     if processed_results_count < len(resultats_montées):
+                segment = montees_grouped.get_group(nom_bloc)
+                if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
+                distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
+                if distance_segment >= min_climb_distance:
+                    if processed_results_count < len(resultats_montées):
                         valid_climb_data.append((processed_results_count, segment)); processed_results_count += 1
-                     else: st.warning(f"Incohérence détectée (montées)."); break
+                    else: st.warning(f"Incohérence détectée (montées)."); break
             for index_resultat, df_climb_original in valid_climb_data:
                 try:
                     fig = create_climb_figure(df_climb_original.copy(), alt_col_to_use, chunk_distance_m, resultats_montées, index_resultat)
@@ -217,13 +217,13 @@ def main_app():
                     except (ValueError, TypeError): st.warning(f"Format durée incorrect sprint {index+1}."); continue
                     end_timestamp = start_timestamp + pd.Timedelta(seconds=duration_float)
                     if start_timestamp in df_analyzed.index and end_timestamp <= df_analyzed.index[-1]:
-                         df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
+                        df_sprint_segment = df_analyzed.loc[start_timestamp:end_timestamp]
                     elif start_timestamp in df_analyzed.index:
-                         df_sprint_segment = df_analyzed.loc[start_timestamp:]
+                        df_sprint_segment = df_analyzed.loc[start_timestamp:]
                     else: df_sprint_segment = pd.DataFrame()
                     if not df_sprint_segment.empty:
-                         fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
-                         st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
+                        fig_sprint = create_sprint_figure(df_sprint_segment.copy(), sprint_info, index, st.session_state.sprint_display_mode)
+                        st.plotly_chart(fig_sprint, use_container_width=True, key=f"sprint_chart_{index}")
                     else: st.warning(f"Segment vide pour sprint {index+1}.")
                 except KeyError as ke: st.error(f"Erreur (KeyError) sprint {index+1}: Clé {ke}."); st.exception(e)
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
@@ -252,14 +252,14 @@ def main_app():
                 processed_results_count = 0
                 montee_ids = list(montees_grouped.groups.keys())
                 for nom_bloc in montee_ids:
-                     segment = montees_grouped.get_group(nom_bloc) 
-                     if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
-                     distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
-                     if distance_segment >= min_climb_distance:
-                         if processed_results_count < len(resultats_montées):
-                            climb_segments_to_plot.append(segment)
-                            processed_results_count += 1
-                         else: break
+                        segment = montees_grouped.get_group(nom_bloc) 
+                        if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
+                        distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
+                        if distance_segment >= min_climb_distance:
+                            if processed_results_count < len(resultats_montées):
+                                climb_segments_to_plot.append(segment)
+                                processed_results_count += 1
+                            else: break
 
             sprint_segments_to_plot = []
             if show_sprints and not sprints_df_full.empty:
@@ -273,26 +273,31 @@ def main_app():
                     except Exception:
                         pass
             
-            # --- BLOC DE RENDU 3D (SOLUTION DU PDF) ---
+            # --- BLOC DE RENDU 3D (Inchangé) ---
             try:
-                # 1. Créer l'objet Pydeck
                 pydeck_deck_object = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
                 if pydeck_deck_object:
-                    
-                    # 2. Convertir en HTML. pydeck==0.8.0 injectera
-                    #    automatiquement le JS deck.gl v8.8
-                    final_html = pydeck_deck_object.to_html(as_string=True)
-                    
-                    # 3. Rendre le HTML dans le composant
+                    final_html = pydeck_deck_object.to_html(
+                        as_string=True,
+                        show_ui_controls=True # Ajoute les contrôles de zoom
+                    )
                     components.html(final_html, height=600, scrolling=False)
-                    
                 else:
                     st.warning("Impossible de générer la carte 3D.")
             
             except Exception as e:
-                # Affiche l'erreur Python complète si quelque chose casse
                 st.exception(e)
+
+            # --- DÉBUT DU NOUVEAU BLOC DE RENDU 2D ---
+            st.subheader("Profil 2D de la Trace")
+            try:
+                # On réutilise simplement la fonction de l'onglet "Profil 2D"
+                fig_profile_2d = create_full_ride_profile(df_analyzed)
+                st.plotly_chart(fig_profile_2d, use_container_width=True)
+            except Exception as e:
+                st.error(f"Erreur lors de la création du profil 2D : {e}")
+            # --- FIN DU NOUVEAU BLOC ---
                 
         else:
             st.warning("Données GPS (position_lat/long) non trouvées.")
