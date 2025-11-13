@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.colors           
 import io 
 import pydeck as pdk 
-import streamlit.components.v1 as components # <-- NÉCESSAIRE
+import streamlit.components.v1 as components 
 
 # --- Importations depuis les modules ---
 try:
@@ -22,7 +22,6 @@ try:
     from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
     
-    # On importe juste le moteur 3D
     from map_3d_engine import create_pydeck_chart 
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
@@ -164,6 +163,7 @@ def main_app():
         if 'df_analyzed' in locals() and not df_analyzed.empty:
             try:
                 fig_profile = create_full_ride_profile(df_analyzed)
+                # L'appel original (sans key) est ici, c'est très bien
                 st.plotly_chart(fig_profile, use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur lors de la création du profil complet : {e}")
@@ -273,31 +273,35 @@ def main_app():
                     except Exception:
                         pass
             
-            # --- BLOC DE RENDU 3D (Inchangé) ---
+            # --- BLOC DE RENDU 3D ---
             try:
                 pydeck_deck_object = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
                 
                 if pydeck_deck_object:
+                    
+                    # <--- CORRECTION 1 : Argument 'show_ui_controls' retiré --->
                     final_html = pydeck_deck_object.to_html(
-                        as_string=True,
-                        show_ui_controls=True # Ajoute les contrôles de zoom
+                        as_string=True
                     )
+                    
                     components.html(final_html, height=600, scrolling=False)
+                    
                 else:
                     st.warning("Impossible de générer la carte 3D.")
             
             except Exception as e:
                 st.exception(e)
 
-            # --- DÉBUT DU NOUVEAU BLOC DE RENDU 2D ---
+            # --- BLOC DE RENDU 2D (Ajouté) ---
             st.subheader("Profil 2D de la Trace")
             try:
-                # On réutilise simplement la fonction de l'onglet "Profil 2D"
                 fig_profile_2d = create_full_ride_profile(df_analyzed)
-                st.plotly_chart(fig_profile_2d, use_container_width=True)
+                
+                # <--- CORRECTION 2 : Ajout d'une 'key' unique --->
+                st.plotly_chart(fig_profile_2d, use_container_width=True, key="profile_in_3d_tab")
+                
             except Exception as e:
                 st.error(f"Erreur lors de la création du profil 2D : {e}")
-            # --- FIN DU NOUVEAU BLOC ---
                 
         else:
             st.warning("Données GPS (position_lat/long) non trouvées.")
