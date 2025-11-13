@@ -46,13 +46,13 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- IDENTIFIANTS RASTER VALIDES (Corrige le 404) ---
+    # --- IDENTIFIANTS RASTER VALIDES ---
     
-    # 1. Utilisation du tileset RASTER pour l'élévation
+    # 1. ÉLÉVATION (Crée le relief 3D, utilise le tileset Raster correct)
     TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
     
-    # 2. Utilisation du tileset RASTER pour la texture
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
+    # 2. TEXTURE (Utilise les tuiles de rues comme texture de surface)
+    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.streets/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
 
 
     # --- COUCHES ---
@@ -61,7 +61,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         # Décodeur R/G/B correct
         elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
-        texture=TERRAIN_TEXTURE_TILE_URL,
+        texture=TERRAIN_TEXTURE_TILE_URL, 
         min_zoom=0
     )
     
@@ -89,8 +89,8 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         # Configuration qui résout les bugs pydeck/streamlit
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
-        # Utilisation d'un style Mapbox valide pour initialiser le moteur (résout le fond noir)
-        map_style='mapbox://styles/mapbox/dark-v10' 
+        # Style de rues qui fournit le fond modélisé 3D
+        map_style='mapbox://styles/mapbox/streets-v11' 
     )
     
     return deck
