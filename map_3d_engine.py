@@ -3,6 +3,11 @@ import pydeck as pdk
 import pandas as pd
 import numpy as np
 
+# Définition des constantes AWS/Terrarium pour l'élévation
+TERRARIUM_ELEVATION_TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+ELEVATION_DECODER_TERRARIUM = {"rScaler": 256, "gScaler": 1, "bScaler": 1 / 256, "offset": -32768}
+
+
 # Fonction pour vérifier la clé API Mapbox
 def check_mapbox_api_key():
     if "MAPBOX_API_KEY" not in st.secrets:
@@ -19,7 +24,6 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment[required_cols].dropna().copy()
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         if not segment_map.empty:
-            # Réduction de l'échantillonnage pour la performance
             sampling_rate_seg = max(1, len(segment_map) // 500)
             segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
             path_data_list.append({
@@ -46,20 +50,20 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     sampling_rate = max(1, len(df_map) // 5000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
-    # --- IDENTIFIANTS RASTER VALIDES ---
+    # --- IDENTIFIANTS TERRAIN ---
     
-    # 1. ÉLÉVATION (Crée le relief 3D, utilise le tileset Raster correct)
-    TERRAIN_ELEVATION_TILE_URL = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{{z}}/{{x}}/{{y}}.pngraw?access_token={MAPBOX_KEY}"
+    # 1. ÉLÉVATION (Source AWS Terrarium - Pas besoin de clé API ici)
+    TERRAIN_ELEVATION_TILE_URL = TERRARIUM_ELEVATION_TILE_URL
     
-    # 2. TEXTURE (Utilise les tuiles de rues comme texture de surface)
-    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.streets/{{z}}/{{x}}/{{y}}@2x.png?access_token={MAPBOX_KEY}"
+    # 2. TEXTURE (Source Mapbox Satellite, nécessite la clé API)
+    TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
 
     # --- COUCHES ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        # Décodeur R/G/B correct
-        elevation_decoder={"r_scale": 6553.6, "g_scale": 25.6, "b_scale": 0.1, "offset": -10000},
+        # ATTENTION : Utilisation du décodeur adapté à la source AWS Terrarium
+        elevation_decoder=ELEVATION_DECODER_TERRARIUM,
         elevation_data=TERRAIN_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL, 
         min_zoom=0
@@ -78,7 +82,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     mid_lat = df_sampled['lat'].mean()
     mid_lon = df_sampled['lon'].mean()
     
-    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=45, bearing=0)
+    initial_view_state = pdk.ViewState(latitude=mid_lat, longitude=mid_lon, zoom=11, pitch=60, bearing=140) # Vue plus penchée
 
     # --- CARTE PYDECK FINALE ---
     deck = pdk.Deck(
@@ -86,11 +90,11 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         initial_view_state=initial_view_state,
         tooltip={"text": "{name}"},
         
-        # Configuration qui résout les bugs pydeck/streamlit
+        # Le Token Mapbox est toujours nécessaire pour la texture et l'initialisation JS
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
-        # Style de rues qui fournit le fond modélisé 3D
-        map_style='mapbox://styles/mapbox/streets-v11' 
+        # On utilise le style satellite Mapbox pour le fond de carte/texture
+        map_style='mapbox://styles/mapbox/satellite-v9' 
     )
     
     return deck
