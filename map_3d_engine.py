@@ -47,7 +47,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     if df_map.empty:
         st.warning("Données GPS/Altitude invalides."); return None
         
-    sampling_rate = max(1, len(df_map) // 5000)
+    sampling_rate = max(1, len(df_map) // 1000)
     df_sampled = df_map.iloc[::sampling_rate, :].copy()
 
     # --- IDENTIFIANTS TERRAIN (Source AWS stable) ---
