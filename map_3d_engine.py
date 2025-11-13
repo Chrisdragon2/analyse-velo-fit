@@ -25,13 +25,9 @@ def prepare_segment_data(segments, required_cols):
         segment_map = segment_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
         if not segment_map.empty:
             sampling_rate_seg = 1 # On prend tous les points
+            segment_sampled = segment_map.iloc[::sampling_rate_seg, :]
             
-            # On doit utiliser .copy() pour éviter un avertissement
-            segment_sampled = segment_map.iloc[::sampling_rate_seg, :].copy() 
-            
-            # --- CORRECTION Z-FIGHTING (Segments) ---
-            # On surélève la trace de 3 mètres pour éviter qu'elle ne s'enfonce dans le sol
-            segment_sampled['altitude'] = segment_sampled['altitude'] + 3
+            # PAS BESOIN DE HACK : on n'ajoute plus +3 mètres
             
             path_data_list.append({
                 "path": segment_sampled[['lon', 'lat', 'altitude']].values.tolist()
@@ -54,15 +50,11 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
     if df_map.empty:
         st.warning("Données GPS/Altitude invalides."); return None
         
-    # On garde l'échantillonnage de la trace principale pour la performance
-    sampling_rate = max(1, len(df_map) // 10000) # (10000 est mieux que 5000)
-    
-    # On doit utiliser .copy() pour éviter un avertissement
-    df_sampled = df_map.iloc[::sampling_rate, :].copy() 
+    # Échantillonnage de la trace principale pour la performance
+    sampling_rate = max(1, len(df_map) // 10000) 
+    df_sampled = df_map.iloc[::sampling_rate, :]
 
-    # --- CORRECTION Z-FIGHTING (Trace principale) ---
-    # On surélève la trace de 3 mètres
-    df_sampled['altitude'] = df_sampled['altitude'] + 3
+    # PAS BESOIN DE HACK : on n'ajoute plus +3 mètres
 
     # --- IDENTIFIANTS TERRAIN (Source AWS stable) ---
     TERRAIN_ELEVATION_TILE_URL = TERRARIUM_ELEVATION_TILE_URL
@@ -79,14 +71,50 @@ def create_pydeck_chart(df, climb_segments, sprint_segments):
         max_zoom=15  # Gère le "zoom flou"
     )
     
+    # --- CORRECTION DU RENDU 3D (Z-FIGHTING) ---
+    # On ajoute "parameters={"depthTest": False}" pour forcer le dessin par-dessus le sol
+    
     path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
-    layer_main = pdk.Layer('PathLayer', data=path_data_main, pickable=True, get_color=[255, 69, 0, 255], width_scale=1, width_min_pixels=3, get_path='path', get_width=5, tooltip={"text": "Trace Complète"})
+    layer_main = pdk.Layer(
+        'PathLayer', 
+        data=path_data_main, 
+        pickable=True, 
+        get_color=[255, 69, 0, 255], 
+        width_scale=1, 
+        width_min_pixels=3, 
+        get_path='path', 
+        get_width=5, 
+        tooltip={"text": "Trace Complète"},
+        parameters={"depthTest": False} # <--- CORRECTION
+    )
     
     path_data_climbs = prepare_segment_data(climb_segments, required_cols_main)
-    layer_climbs = pdk.Layer('PathLayer', data=path_data_climbs, pickable=True, get_color=[255, 0, 255, 255], width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "Montée"})
+    layer_climbs = pdk.Layer(
+        'PathLayer', 
+        data=path_data_climbs, 
+        pickable=True, 
+        get_color=[255, 0, 255, 255], 
+        width_scale=1, 
+        width_min_pixels=5, 
+        get_path='path', 
+        get_width=5, 
+        tooltip={"text": "Montée"},
+        parameters={"depthTest": False} # <--- CORRECTION
+    )
     
     path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
-    layer_sprints = pdk.Layer('PathLayer', data=path_data_sprints, pickable=True, get_color=[0, 255, 255, 255], width_scale=1, width_min_pixels=5, get_path='path', get_width=5, tooltip={"text": "Sprint"})
+    layer_sprints = pdk.Layer(
+        'PathLayer', 
+        data=path_data_sprints, 
+        pickable=True, 
+        get_color=[0, 255, 255, 255], 
+        width_scale=1, 
+        width_min_pixels=5, 
+        get_path='path', 
+        get_width=5, 
+        tooltip={"text": "Sprint"},
+        parameters={"depthTest": False} # <--- CORRECTION
+    )
 
     # --- VUE ---
     mid_lat = df_sampled['lat'].mean()
