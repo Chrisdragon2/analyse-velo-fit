@@ -17,7 +17,7 @@ PENTE_ECHELLE_MAX = 20.0
 def create_full_ride_profile(df):
     """
     Crée un profil d'altitude 2D de toute la sortie, "Strava-style"
-    AVEC un remplissage translucide et la grille en arrière-plan.
+    AVEC un remplissage OPAQUE pour cacher la grille.
     """
     
     df_profile = df.copy()
@@ -44,14 +44,14 @@ def create_full_ride_profile(df):
 
     fig = go.Figure()
 
-    # --- 3. Trace 1: Le Remplissage Translucide ---
+    # --- 3. Trace 1: Le Remplissage OPAQUE "Sexy" ---
     fig.add_trace(go.Scatter(
         x=df_sampled['distance'],
         y=df_sampled['altitude'],
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'),
         fill='tozeroy', 
-        fillcolor='rgba(50, 50, 80, 0.2)', # <--- Votre couleur translucide
+        fillcolor='rgb(235, 238, 245)', # <--- Gris-Bleu OPAQUE
         hoverinfo='none',
         showlegend=False
     ))
@@ -66,7 +66,7 @@ def create_full_ride_profile(df):
         
     plotly_colorscale = PROFILE_COLORSCALE
     
-    last_point = None # Pour "coudre" les segments
+    last_point = None 
 
     for name, group in grouped:
         if group.empty: continue
@@ -139,14 +139,12 @@ def create_full_ride_profile(df):
         height=400,
         margin={"r":20, "t":40, "l":20, "b":20},
         
-        # --- CORRECTION FINALE : Grille en arrière-plan ---
+        # On garde la grille, elle sera juste cachée par le remplissage
         xaxis=dict(
-            gridcolor='#EAEAEA',
-            layer='below traces' # <--- La syntaxe correcte
+            gridcolor='#EAEAEA'
         ),
         yaxis=dict(
-            gridcolor='#EAEAEA',
-            layer='below traces' # <--- La syntaxe correcte
+            gridcolor='#EAEAEA'
         ),
         
         hoverlabel=dict(bgcolor="white", bordercolor="#E0E0E0", font=dict(color="#333333"))
