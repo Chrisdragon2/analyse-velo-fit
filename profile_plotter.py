@@ -51,7 +51,7 @@ def create_full_ride_profile(df):
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'),
         fill='tozeroy', 
-        fillcolor='rgb(155, 155, 155)', # <--- Gris-Bleu OPAQUE
+        fillcolor='rgb(186, 190, 216)', # <--- Gris-Bleu OPAQUE
         hoverinfo='none',
         showlegend=False
     ))
