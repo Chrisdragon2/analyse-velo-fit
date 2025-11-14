@@ -4,20 +4,20 @@ import pandas as pd
 import plotly.colors
 import streamlit as st
 
-# Palette (Bleu -> Vert -> Jaune -> Rouge -> Noir)
+# --- CORRECTION DE LA PALETTE ---
+# On revient à la palette Vert -> Jaune -> Rouge -> Noir
 PROFILE_COLORSCALE = [
-    [0.0, 'rgb(0, 100, 255)'],  # 0% (Bleu)
-    [0.15, 'rgb(0, 128, 0)'],  # 3% (Vert)
-    [0.3, 'rgb(255, 255, 0)'], # 6% (Jaune)
-    [0.5, 'rgb(255, 0, 0)'],   # 10% (Rouge)
-    [1.0, 'rgb(0, 0, 0)']      # 20% (Noir)
+    [0.0, 'rgb(0,128,0)'],     # 0% (Vert)
+    [0.25, 'rgb(255,255,0)'], # 5% (Jaune)
+    [0.5, 'rgb(255,0,0)'],     # 10% (Rouge)
+    [1.0, 'rgb(0,0,0)']        # 20% (Noir)
 ]
 PENTE_ECHELLE_MAX = 20.0 
 
 def create_full_ride_profile(df):
     """
     Crée un profil d'altitude 2D de toute la sortie, "Strava-style"
-    AVEC un remplissage OPAQUE pour cacher la grille.
+    AVEC un remplissage opaque pour cacher la grille.
     """
     
     df_profile = df.copy()
@@ -44,14 +44,14 @@ def create_full_ride_profile(df):
 
     fig = go.Figure()
 
-    # --- 3. Trace 1: Le Remplissage OPAQUE "Sexy" ---
+    # --- 3. Trace 1: Le Remplissage OPAQUE (Votre Couleur) ---
     fig.add_trace(go.Scatter(
         x=df_sampled['distance'],
         y=df_sampled['altitude'],
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'),
         fill='tozeroy', 
-        fillcolor='rgb(186, 190, 216)', # <--- Gris-Bleu OPAQUE
+        fillcolor='rgb(186, 190, 216)', # <--- VOTRE COULEUR
         hoverinfo='none',
         showlegend=False
     ))
