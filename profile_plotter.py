@@ -17,7 +17,7 @@ PENTE_ECHELLE_MAX = 20.0
 def create_full_ride_profile(df):
     """
     Crée un profil d'altitude 2D de toute la sortie, "Strava-style"
-    AVEC l'effet d'ombre/relief et un gradient continu.
+    AVEC l'effet d'ombre/relief et un gradient simulé (petits chunks cousus).
     """
     
     df_profile = df.copy()
@@ -42,10 +42,6 @@ def create_full_ride_profile(df):
     if 'speed_kmh' not in df_sampled.columns and 'speed' in df_sampled.columns:
          df_sampled['speed_kmh'] = df_sampled['speed'] * 3.6
 
-    # Normaliser la pente pour la couleur (0.0 à 1.0)
-    df_sampled['pente_color_norm'] = (df_sampled['pente'].clip(0, PENTE_ECHELLE_MAX) / PENTE_ECHELLE_MAX)
-
-
     fig = go.Figure()
 
     # --- 3. Trace 1: Le Remplissage "Premium" ---
@@ -55,21 +51,67 @@ def create_full_ride_profile(df):
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'),
         fill='tozeroy', 
-        fillcolor='rgba(50, 50, 80, 0.2)', 
+        fillcolor='rgba(50, 50, 80, 0.2)', # Fond bleu-gris
         hoverinfo='none',
         showlegend=False
     ))
 
-    # --- 4. TRACE 2: La Ligne de Profil (Gradient Continu) ---
-    # Fini la boucle ! On combine la ligne ET le hover ici.
+    # --- 4. Trace 2: La Ligne de Profil (Chunks "cousus") ---
     
+    CHUNK_DISTANCE_PROFILE = 50 # Chunks de 50m
+    df_sampled['distance_bin'] = (df_sampled['distance'] // CHUNK_DISTANCE_PROFILE) * CHUNK_DISTANCE_PROFILE
+    
+    try: grouped = df_sampled.groupby('distance_bin', observed=True)
+    except TypeError: grouped = df_sampled.groupby('distance_bin')
+        
+    plotly_colorscale = PROFILE_COLORSCALE
+    
+    last_point = None # Pour stocker le point de "couture"
+
+    for name, group in grouped:
+        if group.empty: continue
+        
+        avg_pente = group['pente'].mean()
+        
+        # Normaliser la pente (de 0% à 20% -> 0.0 à 1.0)
+        pente_norm_pos = max(0, avg_pente) 
+        pente_norm = max(0.00001, min(0.99999, (pente_norm_pos / PENTE_ECHELLE_MAX)))
+        segment_color_rgb_str = plotly.colors.sample_colorscale(plotly_colorscale, pente_norm)[0]
+
+        # Préparer les données du chunk
+        x_chunk = group['distance'].tolist()
+        y_chunk = group['altitude'].tolist()
+
+        # --- CORRECTION DES "COUPURES" ---
+        # Si ce n'est pas le premier chunk, on ajoute le dernier point
+        # du chunk précédent pour "coudre" la ligne.
+        if last_point is not None:
+            x_chunk = [last_point[0]] + x_chunk
+            y_chunk = [last_point[1]] + y_chunk
+
+        fig.add_trace(go.Scatter(
+            x=x_chunk,
+            y=y_chunk,
+            mode='lines',
+            line=dict(width=3, color=segment_color_rgb_str), # Ligne épaisse
+            hoverinfo='none',
+            showlegend=False
+        ))
+        
+        # On sauvegarde le dernier point pour la prochaine boucle
+        last_point = (group['distance'].iloc[-1], group['altitude'].iloc[-1])
+
+
+    # --- 5. La Couche Tooltip (Invisible) ---
+    # (Reste inchangée, elle se superpose par-dessus tout)
     custom_data_cols = [
         df_sampled['pente'].fillna(0),
         df_sampled['speed_kmh'].fillna(0)
     ]
+    # C'EST ICI QU'IL Y AVAIT LA SYNTAXERROR
     hovertemplate_str = "<b>Distance:</b> %{x:,.0f} m<br>" + \
                         "<b>Altitude:</b> %{y:.0f} m<br>" + \
-                        "<b>Pente:</b> %{customdata[0]:.1f} %<br>"D:\Dossier code\FIT-File-Analyzer-main (3)\FIT-File-Analyzer-main\app
+                        "<b>Pente:</b> %{customdata[0]:.1f} %<br>" + \
                         "<b>Vitesse:</b> %{customdata[1]:.1f} km/h<br>"
 
     if 'estimated_power' in df_sampled.columns:
@@ -88,24 +130,14 @@ def create_full_ride_profile(df):
     fig.add_trace(go.Scatter(
         x=df_sampled['distance'],
         y=df_sampled['altitude'],
-        mode='lines+markers', # <-- On active les lignes ET les markers
-        line=dict(
-            width=3, 
-            color='white' # Couleur de base de la ligne
-        ),
-        marker=dict(
-            color=df_sampled['pente_color_norm'].values, # <-- Le gradient
-            colorscale=PROFILE_COLORSCALE,    
-            cmin=0.0,
-            cmax=1.0,
-            opacity=0 # <-- ON CACHE LES MARKERS
-        ),
+        mode='lines',
+        line=dict(width=0, color='rgba(0,0,0,0)'),
         showlegend=False,
         customdata=final_customdata,
         hovertemplate=hovertemplate_str
     ))
 
-    # --- 5. Mise en Forme ---
+    # --- 6. Mise en Forme ---
     fig.update_layout(
         title="Profil Complet de la Sortie",
         template="plotly_white", 
@@ -118,8 +150,5 @@ def create_full_ride_profile(df):
         yaxis=dict(gridcolor='#EAEAEA'),
         hoverlabel=dict(bgcolor="white", bordercolor="#E0E0E0", font=dict(color="#333333"))
     )
-    
-    # On dit à la ligne de prendre la couleur des markers
-    fig.update_traces(line_coloraxis="cmin") 
     
     return fig
