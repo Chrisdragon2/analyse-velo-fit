@@ -146,11 +146,11 @@ def create_full_ride_profile(df):
         # --- CORRECTION DE LA SUPERPOSITION DE LA GRILLE ---
         xaxis=dict(
             gridcolor='#EAEAEA',
-            layer='below' # <--- DIT À LA GRILLE DE SE METTRE EN ARRIÈRE-PLAN
+            layer='below traces' # <--- CORRIGÉ ICI
         ),
         yaxis=dict(
             gridcolor='#EAEAEA',
-            layer='below' # <--- DIT À LA GRILLE DE SE METTRE EN ARRIÈRE-PLAN
+            layer='below traces' # <--- CORRIGÉ ICI
         ),
         
         hoverlabel=dict(bgcolor="white", bordercolor="#E0E0E0", font=dict(color="#333333"))
