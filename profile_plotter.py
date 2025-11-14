@@ -17,7 +17,7 @@ PENTE_ECHELLE_MAX = 20.0
 def create_full_ride_profile(df):
     """
     Crée un profil d'altitude 2D de toute la sortie, "Strava-style"
-    AVEC l'effet d'ombre/relief et un gradient simulé (petits chunks cousus).
+    AVEC un remplissage opaque pour cacher la grille.
     """
     
     df_profile = df.copy()
@@ -44,14 +44,14 @@ def create_full_ride_profile(df):
 
     fig = go.Figure()
 
-    # --- 3. Trace 1: Le Remplissage "Premium" ---
+    # --- 3. Trace 1: Le Remplissage OPAQUE (Votre solution) ---
     fig.add_trace(go.Scatter(
         x=df_sampled['distance'],
         y=df_sampled['altitude'],
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'),
         fill='tozeroy', 
-        fillcolor='rgba(50, 50, 80, 0.2)', # Fond bleu-gris
+        fillcolor='white', # <--- CORRECTION : Remplissage blanc opaque
         hoverinfo='none',
         showlegend=False
     ))
@@ -66,23 +66,20 @@ def create_full_ride_profile(df):
         
     plotly_colorscale = PROFILE_COLORSCALE
     
-    last_point = None # Pour stocker le point de "couture"
+    last_point = None 
 
     for name, group in grouped:
         if group.empty: continue
         
         avg_pente = group['pente'].mean()
         
-        # Normaliser la pente (de 0% à 20% -> 0.0 à 1.0)
         pente_norm_pos = max(0, avg_pente) 
         pente_norm = max(0.00001, min(0.99999, (pente_norm_pos / PENTE_ECHELLE_MAX)))
         segment_color_rgb_str = plotly.colors.sample_colorscale(plotly_colorscale, pente_norm)[0]
 
-        # Préparer les données du chunk
         x_chunk = group['distance'].tolist()
         y_chunk = group['altitude'].tolist()
 
-        # --- CORRECTION DES "COUPURES" ---
         if last_point is not None:
             x_chunk = [last_point[0]] + x_chunk
             y_chunk = [last_point[1]] + y_chunk
@@ -96,7 +93,6 @@ def create_full_ride_profile(df):
             showlegend=False
         ))
         
-        # On sauvegarde le dernier point pour la prochaine boucle
         last_point = (group['distance'].iloc[-1], group['altitude'].iloc[-1])
 
 
@@ -143,14 +139,14 @@ def create_full_ride_profile(df):
         height=400,
         margin={"r":20, "t":40, "l":20, "b":20},
         
-        # --- CORRECTION DE LA SUPERPOSITION DE LA GRILLE ---
+        # On garde cette correction au cas où
         xaxis=dict(
             gridcolor='#EAEAEA',
-            layer='below traces' # <--- CORRIGÉ ICI
+            layer='below traces' 
         ),
         yaxis=dict(
             gridcolor='#EAEAEA',
-            layer='below traces' # <--- CORRIGÉ ICI
+            layer='below traces' 
         ),
         
         hoverlabel=dict(bgcolor="white", bordercolor="#E0E0E0", font=dict(color="#333333"))
