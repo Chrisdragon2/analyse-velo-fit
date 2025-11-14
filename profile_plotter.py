@@ -83,8 +83,6 @@ def create_full_ride_profile(df):
         y_chunk = group['altitude'].tolist()
 
         # --- CORRECTION DES "COUPURES" ---
-        # Si ce n'est pas le premier chunk, on ajoute le dernier point
-        # du chunk précédent pour "coudre" la ligne.
         if last_point is not None:
             x_chunk = [last_point[0]] + x_chunk
             y_chunk = [last_point[1]] + y_chunk
@@ -93,7 +91,7 @@ def create_full_ride_profile(df):
             x=x_chunk,
             y=y_chunk,
             mode='lines',
-            line=dict(width=3, color=segment_color_rgb_str), # Ligne épaisse
+            line=dict(width=3, color=segment_color_rgb_str), 
             hoverinfo='none',
             showlegend=False
         ))
@@ -103,12 +101,10 @@ def create_full_ride_profile(df):
 
 
     # --- 5. La Couche Tooltip (Invisible) ---
-    # (Reste inchangée, elle se superpose par-dessus tout)
     custom_data_cols = [
         df_sampled['pente'].fillna(0),
         df_sampled['speed_kmh'].fillna(0)
     ]
-    # C'EST ICI QU'IL Y AVAIT LA SYNTAXERROR
     hovertemplate_str = "<b>Distance:</b> %{x:,.0f} m<br>" + \
                         "<b>Altitude:</b> %{y:.0f} m<br>" + \
                         "<b>Pente:</b> %{customdata[0]:.1f} %<br>" + \
@@ -146,8 +142,17 @@ def create_full_ride_profile(df):
         hovermode='x unified',
         height=400,
         margin={"r":20, "t":40, "l":20, "b":20},
-        xaxis=dict(gridcolor='#EAEAEA'),
-        yaxis=dict(gridcolor='#EAEAEA'),
+        
+        # --- CORRECTION DE LA SUPERPOSITION DE LA GRILLE ---
+        xaxis=dict(
+            gridcolor='#EAEAEA',
+            layer='below' # <--- DIT À LA GRILLE DE SE METTRE EN ARRIÈRE-PLAN
+        ),
+        yaxis=dict(
+            gridcolor='#EAEAEA',
+            layer='below' # <--- DIT À LA GRILLE DE SE METTRE EN ARRIÈRE-PLAN
+        ),
+        
         hoverlabel=dict(bgcolor="white", bordercolor="#E0E0E0", font=dict(color="#333333"))
     )
     
