@@ -51,7 +51,7 @@ def create_full_ride_profile(df):
         mode='lines',
         line=dict(width=0, color='rgba(0,0,0,0)'),
         fill='tozeroy', 
-        fillcolor='rgba(50, 50, 80, 0.2)', # <--- Couleur translucide
+        fillcolor='rgba(50, 50, 80, 0.2)', # <--- Votre couleur translucide
         hoverinfo='none',
         showlegend=False
     ))
@@ -66,7 +66,7 @@ def create_full_ride_profile(df):
         
     plotly_colorscale = PROFILE_COLORSCALE
     
-    last_point = None 
+    last_point = None # Pour "coudre" les segments
 
     for name, group in grouped:
         if group.empty: continue
@@ -142,11 +142,11 @@ def create_full_ride_profile(df):
         # --- CORRECTION FINALE : Grille en arrière-plan ---
         xaxis=dict(
             gridcolor='#EAEAEA',
-            layer='below traces' # <--- La bonne syntaxe
+            layer='below traces' # <--- La syntaxe correcte
         ),
         yaxis=dict(
             gridcolor='#EAEAEA',
-            layer='below traces' # <--- La bonne syntaxe
+            layer='below traces' # <--- La syntaxe correcte
         ),
         
         hoverlabel=dict(bgcolor="white", bordercolor="#E0E0E0", font=dict(color="#333333"))
