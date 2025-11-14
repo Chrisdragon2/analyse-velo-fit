@@ -7,7 +7,7 @@ import io
 import pydeck as pdk 
 import streamlit.components.v1 as components 
 
-# --- Importations depuis les modules ---
+# --- Importations (inchangées) ---
 try:
     from data_loader import load_and_clean_data
     from power_estimator import estimate_power
@@ -27,26 +27,23 @@ except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents. Détail: {e}")
     st.stop()
 
-# --- Fonction simplifiée pour estimer Crr ---
+# ... (fonctions estimate_crr_from_width et main_app inchangées) ...
 def estimate_crr_from_width(width_mm):
     base_crr = 0.004
     additional_crr_per_mm = 0.0001
     if width_mm > 25: return base_crr + (width_mm - 25) * additional_crr_per_mm
     else: return base_crr
 
-# --- CORPS PRINCIPAL DE L'APPLICATION STREAMLIT ---
 def main_app():
     st.set_page_config(layout="wide", page_title="Analyseur FIT")
     st.title("Analyseur de Sortie FIT")
     
+    # ... (logique session_state et sidebar INCHANGÉE) ...
     if 'sprint_display_mode' not in st.session_state:
         st.session_state.sprint_display_mode = "courbes"
-
     def toggle_sprint_display_mode():
         if st.session_state.sprint_display_mode == "courbes": st.session_state.sprint_display_mode = "barres"
         else: st.session_state.sprint_display_mode = "courbes"
-
-    # --- INPUT UTILISATEUR (Sidebar) ---
     with st.sidebar:
         st.header("1. Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
@@ -74,12 +71,12 @@ def main_app():
             max_gap_distance_sprint = st.slider("Fusion gap (m)", 10, 200, 50, 10, key="sprint_gap_dist")
             sprint_rewind_sec = st.slider("Secondes 'Montée en Puissance'", 0, 20, 10, 1, key="sprint_rewind")
 
-    # --- AFFICHAGE PRINCIPAL ---
+    # ... (logique 'uploaded_file is None' inchangée) ...
     if uploaded_file is None:
         st.info("Veuillez charger un fichier .fit pour commencer l'analyse.")
         st.stop()
 
-    # --- TRAITEMENT DES DONNÉES ---
+    # ... (logique 'TRAITEMENT DES DONNÉES' inchangée) ...
     with st.spinner("Analyse du fichier en cours..."):
         df_analyzed = None; resultats_df = pd.DataFrame(); sprints_df_full = pd.DataFrame()
         analysis_error = None; sprint_error = None; montees_grouped = None; resultats_montées = []
@@ -98,16 +95,14 @@ def main_app():
             sprint_results = detect_sprints(df_analyzed, min_peak_speed_sprint, min_gradient_sprint, max_gradient_sprint, min_sprint_duration, max_gap_distance_sprint, sprint_rewind_sec)
             sprints_df_full = pd.DataFrame(sprint_results)
         except Exception as e: sprint_error = f"Erreur détection sprints : {e}"
-    
     alt_col_to_use = 'altitude'
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS (avec Carte 3D) ---
+    # ... (Onglets Résumé, Profil 2D, Montées, Sprints INCHANGÉS) ...
     tab_summary, tab_profile, tab_climbs, tab_sprints, tab_3d_map = st.tabs(["Résumé", "Profil 2D", "Montées", "Sprints", "Carte 3D"])
-
-    # --- Onglet 1: Résumé ---
     with tab_summary:
+        # ... (tout le code de tab_summary est inchangé) ...
         st.header("Résumé de la Sortie")
         try:
             st.subheader("Statistiques Clés")
@@ -122,18 +117,15 @@ def main_app():
             col2.metric("Dénivelé Positif", f"{d_plus:.0f} m")
             col3.metric("Temps de Déplacement", temps_deplacement_str)
             col4.metric("Vitesse Moyenne", f"{vitesse_moy_kmh:.2f} km/h")
-            
             st.subheader("Carte du Parcours 2D")
             map_style_options = {"Épuré": "carto-positron", "Rues": "open-street-map", "Sombre": "carto-darkmatter"}
             selected_style_name = st.radio("Style de la carte :", options=list(map_style_options.keys()), horizontal=True, key="map_style")
             map_style_id = map_style_options[selected_style_name]
-            
             if 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
                 map_fig = create_map_figure(df_analyzed, map_style_id) 
                 st.plotly_chart(map_fig, use_container_width=True)
             else:
                 st.warning("Données GPS (position_lat/long) non trouvées.")
-            
             st.subheader("Statistiques Secondaires")
             v_max_kmh = session_data.get('max_speed', df['speed'].max()) * 3.6
             avg_hr = session_data.get('avg_heart_rate'); max_hr = session_data.get('max_heart_rate')
@@ -154,25 +146,21 @@ def main_app():
             else: st.info("Aucune donnée de puissance estimée à afficher.")
         except Exception as e:
             st.warning(f"Impossible d'afficher le résumé : {e}")
-
-    # --- Onglet 2: Profil 2D Complet ---
     with tab_profile:
+        # ... (tout le code de tab_profile est inchangé) ...
         st.header("Profil Complet de la Sortie")
         st.info("Survolez le graphique pour voir les détails (pente, vitesse, puissance) à chaque point.")
-        
         if 'df_analyzed' in locals() and not df_analyzed.empty:
             try:
-                fig_profile = create_full_ride_profile(df_analyzed)
-                # L'appel original (sans key) est ici, c'est très bien
+                fig_profile = create_full_ride_profile(df_analyzed) # Appel sans distance
                 st.plotly_chart(fig_profile, use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur lors de la création du profil complet : {e}")
                 st.exception(e)
         else:
             st.warning("Données analysées non disponibles pour afficher le profil.")
-
-    # --- Onglet 3: Montées ---
     with tab_climbs:
+        # ... (tout le code de tab_climbs est inchangé) ...
         st.header("Tableau de Bord des Montées")
         if analysis_error: st.error(analysis_error)
         elif resultats_df.empty: st.warning(f"Aucune ascension ({min_climb_distance}m+, {min_pente}%+) trouvée.")
@@ -194,9 +182,8 @@ def main_app():
                     st.plotly_chart(fig, use_container_width=True, key=f"climb_chart_{index_resultat}")
                 except Exception as e: st.error(f"Erreur création graphique ascension {index_resultat+1}."); st.exception(e)
         elif not analysis_error: st.info("Aucun profil de montée à afficher.")
-
-    # --- Onglet 4: Sprints ---
     with tab_sprints:
+        # ... (tout le code de tab_sprints est inchangé) ...
         st.header("Tableau Récapitulatif des Sprints")
         if sprint_error: st.error(sprint_error)
         elif sprints_df_full.empty: st.warning("Aucun sprint détecté.")
@@ -229,7 +216,8 @@ def main_app():
                 except Exception as e: st.error(f"Erreur création graphique sprint {index+1}."); st.exception(e)
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
-    # --- Onglet 5: Carte 3D (Pydeck) ---
+
+    # --- Onglet 5: Carte 3D (MODIFIÉ) ---
     with tab_3d_map:
         st.header("Carte 3D (Vue Satellite)")
         
@@ -238,7 +226,28 @@ def main_app():
         
         elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
-            # Cases à cocher pour les highlights
+            # --- MODIFICATION 1 : Préparer le slider ---
+            # On a besoin du dataframe complet ici
+            if 'distance' not in df_analyzed.columns:
+                st.error("Colonne 'distance' manquante pour le slider.")
+                st.stop()
+                
+            max_distance = int(df_analyzed['distance'].max())
+            
+            # Créer le slider
+            selected_distance = st.slider(
+                "Parcourir la trace (en mètres)", 
+                min_value=0, 
+                max_value=max_distance, 
+                value=0, 
+                step=100
+            )
+            
+            # Trouver la ligne de données la plus proche de la distance du slider
+            closest_index = (df_analyzed['distance'] - selected_distance).abs().idxmin()
+            selected_point_data = df_analyzed.loc[closest_index]
+            
+            # Cases à cocher (inchangées)
             col1, col2 = st.columns(2)
             with col1:
                 show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
@@ -246,7 +255,7 @@ def main_app():
                 show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
             st.info("Utilisez Maj + Glisser (ou deux doigts sur mobile) pour incliner/pivoter la vue 3D.")
             
-            # Préparation des données pour les highlights
+            # Préparation des données (inchangée)
             climb_segments_to_plot = []
             if show_climbs and montees_grouped is not None:
                 processed_results_count = 0
@@ -260,7 +269,6 @@ def main_app():
                                 climb_segments_to_plot.append(segment)
                                 processed_results_count += 1
                             else: break
-
             sprint_segments_to_plot = []
             if show_sprints and not sprints_df_full.empty:
                 for index, sprint_info in sprints_df_full.iterrows():
@@ -275,31 +283,31 @@ def main_app():
             
             # --- BLOC DE RENDU 3D ---
             try:
-                pydeck_deck_object = create_pydeck_chart(df_analyzed, climb_segments_to_plot, sprint_segments_to_plot)
+                # --- MODIFICATION 2 : Passer le point sélectionné ---
+                pydeck_deck_object = create_pydeck_chart(
+                    df_analyzed, 
+                    climb_segments_to_plot, 
+                    sprint_segments_to_plot,
+                    selected_point_data=selected_point_data
+                )
                 
                 if pydeck_deck_object:
-                    
-                    # <--- CORRECTION 1 : Argument 'show_ui_controls' retiré --->
-                    final_html = pydeck_deck_object.to_html(
-                        as_string=True
-                    )
-                    
+                    final_html = pydeck_deck_object.to_html(as_string=True)
                     components.html(final_html, height=600, scrolling=False)
-                    
                 else:
                     st.warning("Impossible de générer la carte 3D.")
-            
             except Exception as e:
                 st.exception(e)
 
-            # --- BLOC DE RENDU 2D (Ajouté) ---
+            # --- BLOC DE RENDU 2D ---
             st.subheader("Profil 2D de la Trace")
             try:
-                fig_profile_2d = create_full_ride_profile(df_analyzed)
-                
-                # <--- CORRECTION 2 : Ajout d'une 'key' unique --->
+                # --- MODIFICATION 3 : Passer la distance sélectionnée ---
+                fig_profile_2d = create_full_ride_profile(
+                    df_analyzed, 
+                    selected_distance=selected_distance
+                )
                 st.plotly_chart(fig_profile_2d, use_container_width=True, key="profile_in_3d_tab")
-                
             except Exception as e:
                 st.error(f"Erreur lors de la création du profil 2D : {e}")
                 
