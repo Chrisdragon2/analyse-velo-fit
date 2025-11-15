@@ -26,7 +26,7 @@ try:
     
     # --- AJOUT CRUCIAL : Importation du nouveau composant ---
     # (Assurez-vous que le composant est installé via 'pip install -e .')
-    from anim_slider_component import anim_slider 
+    from anim_slider import anim_slider 
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents et que le composant 'anim_slider' est installé. Détail: {e}")
     st.stop()
@@ -108,6 +108,7 @@ def main_app():
 
     # --- STRUCTURE PAR ONGLETS (Tous les autres onglets sont inchangés) ---
     tab_summary, tab_profile, tab_climbs, tab_sprints, tab_3d_map = st.tabs(["Résumé", "Profil 2D", "Montées", "Sprints", "Carte 3D"])
+    
     with tab_summary:
         st.header("Résumé de la Sortie")
         try:
