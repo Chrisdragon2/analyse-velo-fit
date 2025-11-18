@@ -6,7 +6,7 @@ import plotly.colors
 import io 
 import pydeck as pdk 
 import streamlit.components.v1 as components 
-import time # Gardé pour la compatibilité, mais non utilisé pour l'animation
+import time
 
 # --- Importations depuis les modules ---
 try:
@@ -19,13 +19,10 @@ try:
         calculate_climb_summary
     )
     from plotting import create_climb_figure, create_sprint_figure
-    from sprint_detector import detect_sprints
-    from map_plotter import create_map_figure 
     from profile_plotter import create_full_ride_profile
     from map_3d_engine import create_pydeck_chart 
     
-    # --- AJOUT CRUCIAL : Importation du nouveau composant ---
-    # (Assurez-vous que le composant est installé via 'pip install -e .')
+    # Importation du composant d'animation
     from anim_slider import anim_slider 
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents et que le composant 'anim_slider' est installé. Détail: {e}")
@@ -50,7 +47,7 @@ def main_app():
         if st.session_state.sprint_display_mode == "courbes": st.session_state.sprint_display_mode = "barres"
         else: st.session_state.sprint_display_mode = "courbes"
 
-    # --- INPUT UTILISATEUR (Sidebar - Inchangée) ---
+    # --- INPUT UTILISATEUR (Sidebar) ---
     with st.sidebar:
         st.header("1. Fichier")
         uploaded_file = st.file_uploader("Choisissez un fichier .fit", type="fit")
@@ -106,7 +103,7 @@ def main_app():
     if df_analyzed is not None and 'altitude_lisse' in df_analyzed.columns and not df_analyzed['altitude_lisse'].isnull().all():
             alt_col_to_use = 'altitude_lisse'
 
-    # --- STRUCTURE PAR ONGLETS (Tous les autres onglets sont inchangés) ---
+    # --- STRUCTURE PAR ONGLETS ---
     tab_summary, tab_profile, tab_climbs, tab_sprints, tab_3d_map = st.tabs(["Résumé", "Profil 2D", "Montées", "Sprints", "Carte 3D"])
     
     with tab_summary:
