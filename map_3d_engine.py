@@ -3,7 +3,7 @@ import pydeck as pdk
 import pandas as pd
 import numpy as np
 
-# Constantes AWS pour le relief 3D
+# Constantes pour le relief 3D
 TERRARIUM_ELEVATION_TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 ELEVATION_DECODER_TERRARIUM = {"rScaler": 256, "gScaler": 1, "bScaler": 1 / 256, "offset": -32768}
 
@@ -36,66 +36,34 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
     
     df_map = df[required_cols_main].dropna().copy()
     df_map = df_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
-    if df_map.empty: return None
     
-    sampling_rate = max(1, len(df_map) // 10000) 
+    # Échantillonnage pour garder la performance
+    sampling_rate = max(1, len(df_map) // 8000) 
     df_sampled = df_map.iloc[::sampling_rate, :]
 
-    # --- URLS TEXTURE (Satellite) ---
     TERRAIN_TEXTURE_TILE_URL = f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={MAPBOX_KEY}"
 
-    # --- 1. COUCHE TERRAIN 3D (Avec ID Fixe) ---
+    # --- 1. COUCHES FIXES (ID pour éviter le refresh) ---
     terrain_layer = pdk.Layer(
         "TerrainLayer",
-        id="terrain_layer_3d",  # <--- ID CRUCIAL
+        id="terrain_layer_3d",
         elevation_decoder=ELEVATION_DECODER_TERRARIUM,
         elevation_data=TERRARIUM_ELEVATION_TILE_URL,
         texture=TERRAIN_TEXTURE_TILE_URL, 
-        min_zoom=0,
-        max_zoom=15 
+        min_zoom=0, max_zoom=15 
     )
     
-    # --- 2. TRACE DU PARCOURS ---
-    path_data_main = [{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist(), "name": "Trace Complète"}]
     layer_main = pdk.Layer(
         'PathLayer', 
-        id="main_track_layer", # <--- ID CRUCIAL
-        data=path_data_main, 
+        id="main_track_layer",
+        data=[{"path": df_sampled[['lon', 'lat', 'altitude']].values.tolist()}], 
         get_color=[255, 69, 0, 255], 
-        width_min_pixels=3, 
-        get_path='path', 
-        get_width=5,
-        parameters={"depthTest": False} 
-    )
-    
-    # --- 3. COUCHES MONTÉES/SPRINTS ---
-    path_data_climbs = prepare_segment_data(climb_segments, required_cols_main)
-    layer_climbs = pdk.Layer(
-        'PathLayer', 
-        id="climbs_layer", # <--- ID CRUCIAL
-        data=path_data_climbs, 
-        get_color=[255, 0, 255, 255], 
-        width_min_pixels=5, 
-        get_path='path', 
-        get_width=5,
-        parameters={"depthTest": False} 
-    )
-    
-    path_data_sprints = prepare_segment_data(sprint_segments, required_cols_main)
-    layer_sprints = pdk.Layer(
-        'PathLayer', 
-        id="sprints_layer", # <--- ID CRUCIAL
-        data=path_data_sprints, 
-        get_color=[0, 255, 255, 255], 
-        width_min_pixels=5, 
-        get_path='path', 
-        get_width=5,
-        parameters={"depthTest": False} 
+        width_min_pixels=3, get_path='path'
     )
 
-    all_layers = [terrain_layer, layer_main, layer_climbs, layer_sprints]
-    
-    # --- 4. POINT ROUGE ET CAMÉRA ---
+    all_layers = [terrain_layer, layer_main]
+
+    # --- 2. GESTION DU POINT ET DE LA FLUIDITÉ ---
     view_state = None
 
     if selected_point_data is not None:
@@ -103,51 +71,42 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
         pt_lon = selected_point_data['position_long']
         pt_alt = selected_point_data['altitude']
 
-        # Point surélevé (3D)
-        point_data = [{
-            "position": [pt_lon, pt_lat, pt_alt + 30],
-            "name": "Position Actuelle"
-        }]
-        
+        # LE POINT ROUGE (Cycliste)
         point_layer = pdk.Layer(
             "ScatterplotLayer",
-            id="cyclist_marker", # <--- ID CRUCIAL
-            data=point_data,
+            id="cyclist_marker",
+            data=[{"position": [pt_lon, pt_lat, pt_alt + 20]}],
             get_position="position",
-            get_radius=80, 
+            get_radius=60, 
             get_fill_color=[255, 0, 0, 255], 
             get_line_color=[255, 255, 255, 255],
             stroked=True,
-            line_width_min_pixels=2,
+            # --- TRANSITION DU POINT ---
+            transitions={"get_position": 100} # Lissage sur 100ms
         )
         all_layers.append(point_layer)
 
-        # VUE CAMÉRA SUIVEUSE (3D)
+        # LA CAMÉRA (Suivi fluide)
         view_state = pdk.ViewState(
             latitude=pt_lat, 
             longitude=pt_lon, 
-            zoom=13.5, 
-            pitch=60,       # <--- ON GARDE L'ANGLE 3D
-            bearing=140
+            zoom=14, 
+            pitch=60, 
+            bearing=140,
+            # --- TRANSITION DE LA VUE ---
+            transition_duration=100, # Durée du glissement
+            transition_interp=pdk.models.view_state.LinearInterpolator() # Mouvement rectiligne
         )
     else:
-        # Vue défaut
         view_state = pdk.ViewState(
-            latitude=df_sampled['lat'].mean(), 
-            longitude=df_sampled['lon'].mean(), 
-            zoom=11, 
-            pitch=60, 
-            bearing=140
+            latitude=df_sampled['lat'].mean(), longitude=df_sampled['lon'].mean(), 
+            zoom=11, pitch=60, bearing=140
         )
 
-    # --- CARTE FINALE ---
-    deck = pdk.Deck(
+    return pdk.Deck(
         layers=all_layers,
         initial_view_state=view_state,
-        tooltip={"text": "{name}"},
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
         map_style='mapbox://styles/mapbox/satellite-v9' 
     )
-    
-    return deck
