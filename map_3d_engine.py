@@ -94,8 +94,8 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
             pitch=60, 
             bearing=140,
             # --- TRANSITION DE LA VUE ---
-            transition_duration=100, # Durée du glissement
-            transition_interp=pdk.models.view_state.LinearInterpolator() # Mouvement rectiligne
+            transition_duration=150, # Durée du glissement
+            transition_interp=pdk.LinearInterpolator()
         )
     else:
         view_state = pdk.ViewState(
