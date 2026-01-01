@@ -2,16 +2,17 @@ import streamlit as st
 import pydeck as pdk
 import pandas as pd
 
+# --- CONSTANTES ---
 TERRARIUM_ELEVATION_TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 ELEVATION_DECODER_TERRARIUM = {"rScaler": 256, "gScaler": 1, "bScaler": 1 / 256, "offset": -32768}
 
 def prepare_segment_data(segments):
-    """Prépare une liste de DataFrames pour Pydeck PathLayer."""
+    """Prépare les segments (montées/sprints) pour Pydeck."""
     path_data = []
     if not segments:
         return path_data
     for seg in segments:
-        # Nettoyage et extraction des coordonnées
+        # On extrait lon, lat, alt et on enlève les lignes vides
         df_coords = seg[['position_long', 'position_lat', 'altitude']].dropna()
         if not df_coords.empty:
             path_data.append({"path": df_coords.values.tolist()})
@@ -19,41 +20,40 @@ def prepare_segment_data(segments):
 
 def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data=None):
     if "MAPBOX_API_KEY" not in st.secrets:
-        st.error("Clé Mapbox manquante")
+        st.error("Clé Mapbox manquante dans les secrets.")
         return None
     
     token = st.secrets["MAPBOX_API_KEY"]
 
-    # --- DEBUG : On vérifie si les segments arrivent ---
-    with st.sidebar:
-        st.write(f"DEBUG Carte : {len(climb_segments) if climb_segments else 0} montées reçues")
-
-    # 1. Trace principale
+    # 1. Préparation de la trace principale (Orange)
     df_main = df[['position_long', 'position_lat', 'altitude']].dropna()
     sampling = max(1, len(df_main) // 8000)
     main_path = [{"path": df_main.iloc[::sampling].values.tolist()}]
 
+    # --- LISTE DES COUCHES ---
     layers = [
-        # Relief 3D
+        # Relief 3D (Texture satellite)
         pdk.Layer("TerrainLayer", id="terrain", elevation_decoder=ELEVATION_DECODER_TERRARIUM, 
                   elevation_data=TERRARIUM_ELEVATION_TILE_URL, 
                   texture=f"https://api.mapbox.com/v4/mapbox.satellite/{{z}}/{{x}}/{{y}}@2x.jpg?access_token={token}"),
-        # Trace Orange
+        # Trace Orange (Parcours complet)
         pdk.Layer("PathLayer", id="track", data=main_path, get_path="path",
                   get_color=[255, 69, 0, 255], width_min_pixels=3)
     ]
 
     # 2. Ajout des Montées (Rose)
-    if climb_segments and len(climb_segments) > 0:
-        layers.append(pdk.Layer("PathLayer", id="climbs-3d", data=prepare_segment_data(climb_segments),
+    data_climbs = prepare_segment_data(climb_segments)
+    if data_climbs:
+        layers.append(pdk.Layer("PathLayer", id="climbs-3d", data=data_climbs,
                                 get_path="path", get_color=[255, 0, 255, 255], width_min_pixels=5))
 
     # 3. Ajout des Sprints (Cyan)
-    if sprint_segments and len(sprint_segments) > 0:
-        layers.append(pdk.Layer("PathLayer", id="sprints-3d", data=prepare_segment_data(sprint_segments),
+    data_sprints = prepare_segment_data(sprint_segments)
+    if data_sprints:
+        layers.append(pdk.Layer("PathLayer", id="sprints-3d", data=data_sprints,
                                 get_path="path", get_color=[0, 255, 255, 255], width_min_pixels=5))
 
-    # 4. Point Cycliste et Caméra
+    # 4. Point Cycliste (Rouge) et Caméra
     if selected_point_data is not None:
         pt = selected_point_data
         layers.append(pdk.Layer("ScatterplotLayer", id="cyclist",
@@ -68,4 +68,5 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
                                    longitude=df_main['position_long'].mean(), 
                                    zoom=12, pitch=40)
 
-    return pdk.Deck(layers=layers, initial_view_state=view_state, map_style="mapbox://styles/mapbox/satellite-v9", api_keys={"mapbox": token})
+    return pdk.Deck(layers=layers, initial_view_state=view_state, 
+                    map_style="mapbox://styles/mapbox/satellite-v9", api_keys={"mapbox": token})
