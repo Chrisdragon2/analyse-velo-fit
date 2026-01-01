@@ -221,102 +221,90 @@ def main_app():
         elif not sprint_error: st.info("Aucun profil de sprint à afficher.")
 
 
-    # --- Onglet 5: Carte 3D (Pydeck) ---
+# --- Onglet 5: Carte 3D (Pydeck) ---
     with tab_3d_map:
         st.header("Carte 3D (Vue Satellite)")
-        
+
         if "MAPBOX_API_KEY" not in st.secrets:
             st.error("Clé API Mapbox non configurée.")
-        
+
         elif 'df_analyzed' in locals() and 'position_lat' in df_analyzed.columns:
             
-            # --- MODIFICATION : Appel du Composant JS ---
-            
-            # 1. PREPARATION DES DONNEES (pour Python)
-            if 'distance' not in df_analyzed.columns:
-                st.error("Colonne 'distance' manquante.")
-                st.stop()
-                
-            max_distance = int(df_analyzed['distance'].max())
-            
-            # 2. APPEL DU COMPOSANT JAVASCRIPT
-            # Python envoie 'max_dist' à React.
-            # React (JS) fait son animation et renvoie 'current_distance'
-            selected_distance = anim_slider(
-                max_dist=max_distance,
-                key="animation_player"
-            )
+            # --- LA VRAIE SOLUTION : @st.fragment ---
+            # Cette fonction est isolée. Quand le slider bouge, SEULE cette fonction se recharge.
+            @st.fragment 
+            def afficher_carte_interactive():
+                # 1. Préparation
+                if 'distance' not in df_analyzed.columns:
+                    st.error("Colonne 'distance' manquante.")
+                    return
+                max_distance = int(df_analyzed['distance'].max())
 
-            # 3. CALCUL DU POINT ACTUEL (pour Pydeck et Plotly)
-            # On utilise la distance renvoyée par JS
-            closest_index = (df_analyzed['distance'] - selected_distance).abs().idxmin()
-            selected_point_data = df_analyzed.loc[closest_index]
-            
-            # -----------------------------------------------
-            
-            # Cases à cocher (inchangées)
-            col1, col2 = st.columns(2)
-            with col1:
-                show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
-            with col2:
-                show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
-            st.info(f"Position (via JS) : {selected_distance:.0f} m.")
-            
-            # Préparation des données (inchangée)
-            climb_segments_to_plot = []
-            if show_climbs and montees_grouped is not None:
-                processed_results_count = 0
-                montee_ids = list(montees_grouped.groups.keys())
-                for nom_bloc in montee_ids:
-                        segment = montees_grouped.get_group(nom_bloc) 
-                        if 'delta_distance' not in df_analyzed.columns: st.error("Colonne 'delta_distance' manquante."); break
-                        distance_segment = df_analyzed.loc[segment.index, 'delta_distance'].sum()
-                        if distance_segment >= min_climb_distance:
+                # 2. Le Slider (Input)
+                selected_distance = anim_slider(
+                    max_dist=max_distance,
+                    key="animation_player"
+                )
+                
+                # 3. Calculs (Uniquement pour la carte)
+                closest_index = (df_analyzed['distance'] - selected_distance).abs().idxmin()
+                selected_point_data = df_analyzed.loc[closest_index]
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    show_climbs = st.checkbox("Afficher les Montées (Rose)", value=True, key="3d_climbs")
+                with col2:
+                    show_sprints = st.checkbox("Afficher les Sprints (Cyan)", value=True, key="3d_sprints")
+                
+                st.info(f"Position : {selected_distance:.0f} m")
+
+                # 4. Affichage Carte
+                climb_segments_to_plot = []
+                if show_climbs and montees_grouped is not None:
+                     # (Logique de filtrage des montées inchangée, on récupère les variables du scope parent)
+                     processed_results_count = 0
+                     for nom_bloc in list(montees_grouped.groups.keys()):
+                        segment = montees_grouped.get_group(nom_bloc)
+                        dist_seg = df_analyzed.loc[segment.index, 'delta_distance'].sum()
+                        if dist_seg >= min_climb_distance:
                             if processed_results_count < len(resultats_montées):
                                 climb_segments_to_plot.append(segment)
                                 processed_results_count += 1
-                            else: break
-            sprint_segments_to_plot = []
-            if show_sprints and not sprints_df_full.empty:
-                for index, sprint_info in sprints_df_full.iterrows():
-                    try:
-                        start_time = sprint_info['Début']
-                        duration = float(sprint_info['Durée (s)'])
-                        end_time = start_time + pd.Timedelta(seconds=duration)
-                        segment_data = df_analyzed.loc[start_time:end_time]
-                        sprint_segments_to_plot.append(segment_data)
-                    except Exception:
-                        pass
-            
-            # --- BLOC DE RENDU 3D ---
-            try:
-                pydeck_deck_object = create_pydeck_chart(
-                    df_analyzed, 
-                    climb_segments_to_plot, 
-                    sprint_segments_to_plot,
-                    selected_point_data=selected_point_data
-                )
-                if pydeck_deck_object:
-                    final_html = pydeck_deck_object.to_html(as_string=True)
-                    components.html(final_html, height=600, scrolling=False)
-                else:
-                    st.warning("Impossible de générer la carte 3D.")
-            except Exception as e:
-                st.exception(e)
-
-            # --- BLOC DE RENDU 2D ---
-            st.subheader("Profil 2D de la Trace")
-            try:
-                fig_profile_2d = create_full_ride_profile(
-                    df_analyzed, 
-                    selected_distance=selected_distance
-                )
-                st.plotly_chart(fig_profile_2d, use_container_width=True, key="profile_in_3d_tab")
-            except Exception as e:
-                st.error(f"Erreur lors de la création du profil 2D : {e}")
                 
+                sprint_segments_to_plot = []
+                if show_sprints and not sprints_df_full.empty:
+                    # (Logique simple pour les sprints)
+                    for _, s_info in sprints_df_full.iterrows():
+                        try:
+                            end = s_info['Début'] + pd.Timedelta(seconds=float(s_info['Durée (s)']))
+                            sprint_segments_to_plot.append(df_analyzed.loc[s_info['Début']:end])
+                        except: pass
+
+                # Création et affichage Pydeck
+                try:
+                    deck = create_pydeck_chart(
+                        df_analyzed, 
+                        climb_segments_to_plot, 
+                        sprint_segments_to_plot, 
+                        selected_point_data=selected_point_data
+                    )
+                    if deck:
+                        # Astuce : On force une hauteur fixe pour éviter les sauts
+                        st.components.v1.html(deck.to_html(as_string=True), height=600)
+                except Exception as e:
+                    st.error(f"Erreur Pydeck : {e}")
+
+                # 5. Profil 2D sous la carte
+                try:
+                    fig_2d = create_full_ride_profile(df_analyzed, selected_distance=selected_distance)
+                    st.plotly_chart(fig_2d, use_container_width=True, key="profile_3d_view")
+                except: pass
+
+            # --- APPEL DE LA FONCTION ISOLEE ---
+            afficher_carte_interactive()
+            
         else:
-            st.warning("Données GPS (position_lat/long) non trouvées.")
+            st.warning("Données GPS non trouvées.")
 
 # Point d'entrée
 if __name__ == "__main__":
