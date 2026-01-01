@@ -9,6 +9,7 @@ import streamlit.components.v1 as components
 import time
 
 # --- Importations depuis les modules ---
+# --- Importations depuis les modules ---
 try:
     from data_loader import load_and_clean_data
     from power_estimator import estimate_power
@@ -18,15 +19,19 @@ try:
         group_and_merge_climbs,
         calculate_climb_summary
     )
-    # --- CORRECTION ICI : J'ai ajouté create_map_figure ---
-    from plotting import create_climb_figure, create_sprint_figure, create_map_figure
+    # 1. On garde les graphiques classiques dans plotting
+    from plotting import create_climb_figure, create_sprint_figure
+    
+    # 2. CORRECTION ICI : On importe la carte depuis map_plotter !
+    from map_plotter import create_map_figure 
+    
     from profile_plotter import create_full_ride_profile
     from map_3d_engine import create_pydeck_chart 
     
     # Importation du composant d'animation
     from anim_slider.anim_slider import anim_slider 
 except ImportError as e:
-    st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents et que le composant 'anim_slider' est installé. Détail: {e}")
+    st.error(f"Erreur d'importation : {e}")
     st.stop()
 
 # --- Fonction simplifiée pour estimer Crr ---
