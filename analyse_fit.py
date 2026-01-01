@@ -8,8 +8,6 @@ import pydeck as pdk
 import streamlit.components.v1 as components 
 import time
 
-# --- Importations depuis les modules ---
-# --- Importations depuis les modules ---
 try:
     from data_loader import load_and_clean_data
     from power_estimator import estimate_power
@@ -254,7 +252,8 @@ def main_app():
                     st.error("Colonne 'distance' manquante.")
                     return
                 max_distance = int(df_analyzed['distance'].max())
-
+                st.write("---")
+                st.info(f"DEBUG : Tentative d'affichage du bouton (Max dist: {max_distance})")
                 # 2. Le Slider (Input)
                 selected_distance = anim_slider(
                     max_dist=max_distance,
