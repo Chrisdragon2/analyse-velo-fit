@@ -7,15 +7,12 @@ import numpy as np
 TERRARIUM_ELEVATION_TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 ELEVATION_DECODER_TERRARIUM = {"rScaler": 256, "gScaler": 1, "bScaler": 1 / 256, "offset": -32768}
 
-
-# ... (check_mapbox_api_key inchangée) ...
 def check_mapbox_api_key():
     if "MAPBOX_API_KEY" not in st.secrets:
         st.error("Clé API Mapbox non trouvée.")
         return False, None
     return True, st.secrets["MAPBOX_API_KEY"]
 
-# ... (prepare_segment_data inchangée, toujours avec depthTest: False) ...
 def prepare_segment_data(segments, required_cols):
     path_data_list = []
     for segment in segments:
@@ -31,21 +28,24 @@ def prepare_segment_data(segments, required_cols):
             })
     return path_data_list
 
-# --- MODIFICATION 1 : Accepter le point sélectionné ---
 def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data=None):
     
     key_ok, MAPBOX_KEY = check_mapbox_api_key()
     if not key_ok: return None
 
-    # ... (logique de préparation de df_sampled inchangée) ...
+    # Préparation des données principales
     required_cols_main = ['position_lat', 'position_long', 'altitude']
     if not all(col in df.columns for col in required_cols_main):
         st.warning("Données de trace principale manquantes.")
         return None
+    
     df_map = df[required_cols_main].dropna().copy()
     df_map = df_map.rename(columns={"position_lat": "lat", "position_long": "lon"})
+    
     if df_map.empty:
-        st.warning("Données GPS/Altitude invalides."); return None
+        st.warning("Données GPS/Altitude invalides.")
+        return None
+        
     sampling_rate = max(1, len(df_map) // 10000) 
     df_sampled = df_map.iloc[::sampling_rate, :]
 
@@ -100,15 +100,16 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
     # Liste de toutes les couches
     all_layers = [terrain_layer, layer_main, layer_climbs, layer_sprints]
     
-    # --- MODIFICATION 2 : Ajouter la couche du point sélectionné ---
+    # --- AJOUT DU POINT ROUGE (Cycliste) ---
     if selected_point_data is not None:
-        # On surélève le point de 20m pour être sûr qu'il soit visible au-dessus du sol
+        # On extrait les données proprement
+        pt_lat = selected_point_data['position_lat']
+        pt_lon = selected_point_data['position_long']
+        pt_alt = selected_point_data['altitude']
+
+        # On surélève le point de 30m pour être sûr qu'il soit bien visible
         point_data = [{
-            "position": [
-                selected_point_data['position_long'], 
-                selected_point_data['position_lat'], 
-                selected_point_data['altitude'] + 20
-            ],
+            "position": [pt_lon, pt_lat, pt_alt + 30],
             "name": "Position Actuelle"
         }]
         
@@ -116,30 +117,41 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
             "ScatterplotLayer",
             data=point_data,
             get_position="position",
-            get_radius=50, # 50 mètres de rayon
-            get_fill_color=[255, 0, 0, 255], # Rouge vif
+            get_radius=80, # Un peu plus gros pour bien le voir
+            get_fill_color=[255, 0, 0, 255], # ROUGE
+            get_line_color=[255, 255, 255, 255], # Bord blanc
+            stroked=True,
+            line_width_min_pixels=2,
             pickable=True,
-            tooltip={"text": "{name}"}
         )
-        all_layers.append(point_layer) # Ajoute le point à la carte
+        all_layers.append(point_layer)
 
-    # --- VUE ---
-    mid_lat = df_sampled['lat'].mean()
-    mid_lon = df_sampled['lon'].mean()
+    # --- VUE (CAMERA) ---
+    # C'EST ICI QUE TOUT SE JOUE POUR LE SUIVI
+    if selected_point_data is not None:
+        # Si on a un point sélectionné, la caméra se centre dessus !
+        view_lat = selected_point_data['position_lat']
+        view_lon = selected_point_data['position_long']
+        view_zoom = 13.5 # Zoom plus proche pour l'action
+    else:
+        # Sinon, vue d'ensemble par défaut
+        view_lat = df_sampled['lat'].mean()
+        view_lon = df_sampled['lon'].mean()
+        view_zoom = 11
     
     initial_view_state = pdk.ViewState(
-        latitude=mid_lat, 
-        longitude=mid_lon, 
-        zoom=11, 
+        latitude=view_lat, 
+        longitude=view_lon, 
+        zoom=view_zoom, 
         pitch=60, 
-        bearing=140
+        bearing=140 # On garde un angle constant pour éviter de donner le tournis
     )
 
     # --- CARTE PYDECK FINALE ---
     deck = pdk.Deck(
-        layers=all_layers, # <--- Utilise la liste dynamique de couches
+        layers=all_layers,
         initial_view_state=initial_view_state,
-        tooltip={"text": "{name}"}, # Tooltip par défaut (pour le point)
+        tooltip={"text": "{name}"},
         api_keys={'mapbox': MAPBOX_KEY}, 
         map_provider='mapbox',
         map_style='mapbox://styles/mapbox/satellite-v9' 
