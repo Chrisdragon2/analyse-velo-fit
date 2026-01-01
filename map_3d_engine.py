@@ -72,7 +72,7 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
         pt_alt = selected_point_data['altitude']
 
         # LE POINT ROUGE (Cycliste)
-        point_layer = pdk.Layer(
+            point_layer = pdk.Layer(
             "ScatterplotLayer",
             id="cyclist_marker",
             data=[{"position": [pt_lon, pt_lat, pt_alt + 20]}],
@@ -81,21 +81,21 @@ def create_pydeck_chart(df, climb_segments, sprint_segments, selected_point_data
             get_fill_color=[255, 0, 0, 255], 
             get_line_color=[255, 255, 255, 255],
             stroked=True,
-            # --- TRANSITION DU POINT ---
-            transitions={"get_position": 100} # Lissage sur 100ms
+            # On utilise une durée simple pour le lissage du point
+            transitions={"get_position": 150} 
         )
         all_layers.append(point_layer)
 
-        # LA CAMÉRA (Suivi fluide)
+        # --- LA CAMÉRA (Suivi fluide) ---
         view_state = pdk.ViewState(
             latitude=pt_lat, 
             longitude=pt_lon, 
             zoom=14, 
             pitch=60, 
             bearing=140,
-            # --- TRANSITION DE LA VUE ---
-            transition_duration=150, # Durée du glissement
-            transition_interp=pdk.LinearInterpolator()
+            # En mettant juste transition_duration, Pydeck utilise 
+            # l'interpolateur linéaire par défaut. Pas besoin de l'importer !
+            transition_duration=150 
         )
     else:
         view_state = pdk.ViewState(
