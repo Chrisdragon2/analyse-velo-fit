@@ -280,7 +280,7 @@ def main_app():
                             sprint_segments_to_plot.append(df_analyzed.loc[s_info['Début']:end])
                         except: pass
 
-                # Création et affichage Pydeck
+# --- Création et affichage Pydeck (METHODE FLUIDE) ---
                 try:
                     deck = create_pydeck_chart(
                         df_analyzed, 
@@ -288,9 +288,13 @@ def main_app():
                         sprint_segments_to_plot, 
                         selected_point_data=selected_point_data
                     )
+                    
                     if deck:
-                        # Astuce : On force une hauteur fixe pour éviter les sauts
-                        st.components.v1.html(deck.to_html(as_string=True), height=600)
+                        # C'EST LA LIGNE IMPORTANTE :
+                        # On donne l'objet 'deck' directement à Streamlit.
+                        # Il gère la mise à jour sans clignotement.
+                        st.pydeck_chart(deck, use_container_width=True)
+                        
                 except Exception as e:
                     st.error(f"Erreur Pydeck : {e}")
 
