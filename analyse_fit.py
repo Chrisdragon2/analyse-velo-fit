@@ -23,7 +23,7 @@ try:
     from map_3d_engine import create_pydeck_chart 
     
     # Importation du composant d'animation
-    from anim_slider import anim_slider 
+    from anim_slider.anim_slider import anim_slider 
 except ImportError as e:
     st.error(f"Erreur d'importation: Assurez-vous que tous les fichiers .py nécessaires sont présents et que le composant 'anim_slider' est installé. Détail: {e}")
     st.stop()
